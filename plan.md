@@ -28,7 +28,7 @@ The application will follow an Electron-first architecture that works both as a 
 ## Project Structure
 
 ```
-mountain-care-hr/
+MCPHR/
 ├── package.json             # Root package with shared dependencies
 ├── client/                  # React frontend
 │   ├── public/
@@ -509,5 +509,4 @@ After the MVP is completed, additional modules can be added in this order:
 5. Document Management
 6. Onboarding/Offboarding
 7. Reporting and Analytics
-
 Each module will follow the established architecture and styling to maintain consistency across both web and desktop platforms.
