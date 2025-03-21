@@ -5,7 +5,8 @@ class UserService {
   private db: DatabaseService;
 
   constructor() {
-    this.db = DatabaseService.getInstance();
+    // Replace getInstance() with a normal constructor since getInstance() does not exist.
+    this.db = new DatabaseService();
   }
 
   /**
@@ -14,7 +15,7 @@ class UserService {
    */
   public async getAllUsers(): Promise<User[]> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = await this.db.executeQuery(`
         SELECT 
           id, 
           email, 
@@ -27,8 +28,7 @@ class UserService {
         FROM users
         ORDER BY last_name, first_name
       `);
-
-      return rows.map(row => this.mapUserFromRow(row));
+      return rows.map((row: any) => this.mapUserFromRow(row));
     } catch (error) {
       console.error('Error getting all users:', error);
       throw error;
@@ -42,7 +42,7 @@ class UserService {
    */
   public async getUserById(id: number): Promise<User | null> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = await this.db.executeQuery(`
         SELECT 
           id, 
           email, 
@@ -74,7 +74,7 @@ class UserService {
    */
   public async getUserByEmail(email: string): Promise<User | null> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = await this.db.executeQuery(`
         SELECT 
           id, 
           email, 
@@ -104,10 +104,12 @@ class UserService {
    * @param user User data
    * @returns Created user with ID
    */
-  public async createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  public async createUser(
+    user: Omit<User, 'id' | 'createdAt' | 'updatedAt'> & { password: string }
+  ): Promise<User> {
     try {
       const now = new Date().toISOString();
-      const id = this.db.insert(`
+      const id = await this.db.executeInsert(`
         INSERT INTO users (
           email, 
           password, 
@@ -130,9 +132,9 @@ class UserService {
       return {
         ...user,
         id,
-        createdAt: new Date(now),
-        updatedAt: new Date(now)
-      };
+        createdAt: now,
+        updatedAt: now
+      } as User;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -145,15 +147,16 @@ class UserService {
    * @param user User data to update
    * @returns Updated user
    */
-  public async updateUser(id: number, user: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>): Promise<User> {
+  public async updateUser(
+    id: number,
+    user: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & { password?: string }
+  ): Promise<User> {
     try {
-      // Get the current user to merge with updates
       const currentUser = await this.getUserById(id);
       if (!currentUser) {
         throw new Error(`User with ID ${id} not found`);
       }
 
-      // Build the SQL SET clause dynamically
       const updates: string[] = [];
       const values: any[] = [];
 
@@ -182,28 +185,24 @@ class UserService {
         values.push(user.role);
       }
 
-      // Only update if there are changes
       if (updates.length > 0) {
         const now = new Date().toISOString();
         updates.push('updated_at = ?');
         values.push(now);
         
-        // Add the ID as the last parameter
         values.push(id);
 
-        // Execute the update
-        this.db.run(`
+        await this.db.executeUpdate(`
           UPDATE users
           SET ${updates.join(', ')}
           WHERE id = ?
         `, values);
 
-        // Return the updated user
         return {
           ...currentUser,
           ...user,
-          updatedAt: new Date(now)
-        };
+          updatedAt: now
+        } as User;
       }
 
       return currentUser;
@@ -220,7 +219,7 @@ class UserService {
    */
   public async deleteUser(id: number): Promise<boolean> {
     try {
-      const result = this.db.run('DELETE FROM users WHERE id = ?', [id]);
+      const result = await this.db.executeUpdate('DELETE FROM users WHERE id = ?', [id]);
       return result > 0;
     } catch (error) {
       console.error(`Error deleting user with ID ${id}:`, error);
@@ -241,9 +240,9 @@ class UserService {
       firstName: row.firstName,
       lastName: row.lastName,
       role: row.role as UserRole,
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt)
-    };
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    } as User;
   }
 }
 
