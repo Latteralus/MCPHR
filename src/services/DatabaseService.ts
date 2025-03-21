@@ -1,40 +1,71 @@
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// Interface for the IndexedDB schema
-interface AppDB extends DBSchema {
-  sqliteDB: {
-    key: string;
-    value: Uint8Array;
-  };
+// For TypeScript - extend Process interface for Electron
+declare global {
+  namespace NodeJS {
+    interface Process {
+      type?: string;
+    }
+  }
+  interface Window {
+    process?: NodeJS.Process;
+  }
 }
 
 export class DatabaseService {
   private static SQL: SqlJsStatic | null = null;
   private static instance: DatabaseService | null = null;
   private db: Database | null = null;
-  private static DB_KEY = 'mcphr-db';
-  private static idbPromise: Promise<IDBPDatabase<AppDB>> | null = null;
-
+  private dbFilePath: string;
+  
   // A promise that resolves when the database is opened and ready
   public ready: Promise<void>;
 
   constructor() {
-    // Initialize SQL.js if not already done
-    if (!DatabaseService.SQL) {
-      this.initSql().catch(error => {
-        console.error('Error during SQL.js initialization in constructor:', error);
-      });
+    // Get the app data directory path
+    // Handle both main process and renderer process
+    let userDataDir: string;
+    try {
+      // Check if we're in Electron
+      if (typeof window !== 'undefined' && window.process && window.process.type) {
+        // Try to access remote
+        try {
+          const { remote } = require('@electron/remote');
+          userDataDir = remote.app.getPath('userData');
+        } catch (remoteError) {
+          // Fallback if remote is not available
+          userDataDir = path.join(process.cwd(), 'userData');
+        }
+      } else if (typeof process !== 'undefined' && process.type === 'browser') {
+        // Main Electron process
+        const { app } = require('electron');
+        userDataDir = app.getPath('userData');
+      } else {
+        // Web environment or other
+        userDataDir = path.join(process.cwd(), 'userData');
+      }
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(userDataDir)) {
+        fs.mkdirSync(userDataDir, { recursive: true });
+      }
+    } catch (error) {
+      // Fallback for any environment
+      userDataDir = path.join(process.cwd(), 'userData');
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(userDataDir)) {
+        fs.mkdirSync(userDataDir, { recursive: true });
+      }
     }
-
-    // Initialize IndexedDB connection if not already done
-    if (!DatabaseService.idbPromise) {
-      DatabaseService.idbPromise = this.initIndexedDB();
-    }
-
-    // Automatically open the database so that consumers can await readiness.
-    this.ready = this.openDatabase().catch(error => {
-      console.error('Error opening database in constructor:', error);
+    
+    // Set the database file path
+    this.dbFilePath = path.join(userDataDir, 'mcphr-database.sqlite');
+    
+    // Automatically open the database so that consumers can await readiness
+    this.ready = this.init().catch(error => {
+      console.error('Error initializing database in constructor:', error);
       throw error;
     });
   }
@@ -50,16 +81,38 @@ export class DatabaseService {
   }
 
   /**
+   * Initialize SQL.js and the database.
+   */
+  private async init(): Promise<void> {
+    try {
+      await this.initSql();
+      await this.openDatabase();
+    } catch (error) {
+      console.error('Database initialization failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Initialize SQL.js library.
    */
   private async initSql(): Promise<void> {
     try {
-      // Try to load from local path first
-      const wasmUrl = '/static/js/sql-wasm.wasm'; // This is where we'll copy it with postbuild
+      // For Electron, we can try to load the WASM file from a known location
+      let wasmPath: string;
       
+      // In production, look for the wasm file in a standard location
+      if (typeof process !== 'undefined' && process.type === 'renderer') {
+        wasmPath = path.join(__dirname, './sql-wasm.wasm');
+      } else {
+        // In development, check node_modules
+        wasmPath = path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm');
+      }
+      
+      // Try to initialize with the local path
       try {
         DatabaseService.SQL = await initSqlJs({
-          locateFile: () => wasmUrl
+          locateFile: () => wasmPath
         });
       } catch (localError) {
         console.warn('Failed to load SQL.js from local path, trying CDN fallback:', localError);
@@ -71,24 +124,6 @@ export class DatabaseService {
       }
     } catch (error) {
       console.error('Failed to initialize SQL.js:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Initialize IndexedDB for persistent storage.
-   */
-  private async initIndexedDB(): Promise<IDBPDatabase<AppDB>> {
-    try {
-      return await openDB<AppDB>('mcphr-database', 1, {
-        upgrade(db) {
-          if (!db.objectStoreNames.contains('sqliteDB')) {
-            db.createObjectStore('sqliteDB');
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Failed to initialize IndexedDB:', error);
       throw error;
     }
   }
@@ -107,18 +142,22 @@ export class DatabaseService {
         this.closeDatabase();
       }
 
-      const idb = await DatabaseService.idbPromise;
-      if (!idb) {
-        throw new Error('Failed to initialize IndexedDB');
+      // Check if database file exists
+      let dbBuffer: Buffer | null = null;
+      
+      try {
+        if (fs.existsSync(this.dbFilePath)) {
+          dbBuffer = fs.readFileSync(this.dbFilePath);
+        }
+      } catch (err) {
+        console.warn('Could not read database file, creating new database:', err);
       }
 
-      const dbData = await idb.get('sqliteDB', DatabaseService.DB_KEY);
-
-      if (dbData) {
-        // Load existing database from IndexedDB
-        this.db = new DatabaseService.SQL!.Database(dbData);
+      if (dbBuffer) {
+        // Load existing database from file
+        this.db = new DatabaseService.SQL!.Database(dbBuffer);
       } else {
-        // Create a new database and schema if not found
+        // Create a new database
         this.db = new DatabaseService.SQL!.Database();
         await this.createSchema();
       }
@@ -139,7 +178,7 @@ export class DatabaseService {
   }
 
   /**
-   * Saves the current state of the database to IndexedDB.
+   * Saves the current state of the database to file.
    */
   async saveDatabase(): Promise<void> {
     if (!this.db) {
@@ -147,11 +186,18 @@ export class DatabaseService {
     }
     try {
       const data = this.db.export();
-      const idb = await DatabaseService.idbPromise;
-      if (!idb) {
-        throw new Error('Failed to initialize IndexedDB');
+      const buffer = Buffer.from(data);
+      
+      // Ensure the directory exists
+      const dirname = path.dirname(this.dbFilePath);
+      if (!fs.existsSync(dirname)) {
+        fs.mkdirSync(dirname, { recursive: true });
       }
-      await idb.put('sqliteDB', data, DatabaseService.DB_KEY);
+      
+      // Write to a temp file first and then rename to avoid corruption if the app crashes
+      const tempPath = `${this.dbFilePath}.tmp`;
+      fs.writeFileSync(tempPath, buffer);
+      fs.renameSync(tempPath, this.dbFilePath);
     } catch (error) {
       console.error('Failed to save database:', error);
       throw error;
