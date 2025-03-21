@@ -1,3 +1,4 @@
+```markdown
 You are an expert in full-stack development. I have a project plan that needs refining and code suggestions. The project is a browser-based HR app called "Mountain Care HR" (MCPHR). I want to start with a local, in-browser SQLite database using `sql.js` but ensure it can be easily ported to PostgreSQL later. Below are all the relevant details:
 
 ================================================================================
@@ -58,7 +59,15 @@ MCPHR/
 │   │   ├── Login/           # Login page
 │   │   ├── Dashboard/       # Dashboard page
 │   │   ├── Employees/       # Employees pages
+│   │   │   ├── EmployeeList.tsx # Employee listing page  
+│   │   │   ├── EmployeeDetail.tsx # Employee detail page
+│   │   │   ├── EmployeeForm.tsx # Employee create/edit form
+│   │   │   └── Employees.css # Styles for employee pages 
 │   │   ├── Licenses/        # License tracking pages
+│   │   │   ├── LicenseList.tsx # License listing page
+│   │   │   ├── LicenseDetail.tsx # License detail page
+│   │   │   ├── LicenseForm.tsx # License create/edit form
+│   │   │   └── Licenses.css # Styles for license pages
 │   │   ├── Attendance/      # Attendance tracking
 │   │   └── Settings/        # Application settings
 │   ├── services/            # Services layer for data access
@@ -382,7 +391,7 @@ MCPHR/
 
 ================================================================================
 
-## Progress Update (Week 1-3)
+## Progress Update (Week 1-5)
 
 The following items have been completed:
 
@@ -390,6 +399,7 @@ The following items have been completed:
    - Created React + TypeScript project with proper folder structure
    - Set up TypeScript configuration with path aliases
    - Added global CSS styles and design system
+   - Configured CRACO for webpack customization
    
 2. **Database Implementation**
    - Implemented DatabaseService using sql.js for in-browser SQLite
@@ -422,13 +432,15 @@ The following items have been completed:
    - Created Employee List page with search and filters
    - Implemented License tracking with expiration alerts
 
-## Next Steps (Week 4-5)
+## Next Steps (Week 6-7)
 
 1. Implement employee detail and edit pages
 2. Create employee creation flow
 3. Build license detail and edit forms
 4. Add attendance tracking module
 5. Create document management features
+6. Implement unit and integration tests
+7. Optimize performance and fix bugs
 
 ================================================================================
 
@@ -443,3 +455,4 @@ The following items have been completed:
 - Use this updated plan as a guide for continuing the development of your browser-based HR app.
 - The structure now reflects the actual implementation with TypeScript and the service pattern.
 - Follow the "Next Steps" section to prioritize upcoming development tasks.
+```
