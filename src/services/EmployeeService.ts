@@ -7,8 +7,16 @@ class EmployeeService {
   private userService: UserService;
 
   constructor() {
+    // Using the singleton method for backward compatibility.
     this.db = DatabaseService.getInstance();
     this.userService = new UserService();
+  }
+
+  /**
+   * Type guard to check if a value is a Date.
+   */
+  private isDate(d: unknown): d is Date {
+    return d instanceof Date;
   }
 
   /**
@@ -58,14 +66,14 @@ class EmployeeService {
 
       query += ' ORDER BY employee_id';
 
-      const rows = this.db.query<any>(query, params);
-      const employees = rows.map(row => this.mapEmployeeFromRow(row));
+      const rows = this.db.executeQuery(query, params);
+      const employees = rows.map((row: any) => this.mapEmployeeFromRow(row));
 
       // Include user data if requested
       if (options.includeUser) {
         for (const employee of employees) {
           if (employee.userId) {
-            employee.user = await this.userService.getUserById(employee.userId);
+            (employee as any).user = await this.userService.getUserById(employee.userId);
           }
         }
       }
@@ -85,7 +93,7 @@ class EmployeeService {
    */
   public async getEmployeeById(id: number, includeUser: boolean = false): Promise<Employee | null> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = this.db.executeQuery(`
         SELECT 
           id, 
           user_id as userId, 
@@ -111,7 +119,7 @@ class EmployeeService {
 
       // Include user data if requested
       if (includeUser && employee.userId) {
-        employee.user = await this.userService.getUserById(employee.userId);
+        (employee as any).user = await this.userService.getUserById(employee.userId);
       }
 
       return employee;
@@ -129,7 +137,7 @@ class EmployeeService {
    */
   public async getEmployeeByUserId(userId: number, includeUser: boolean = false): Promise<Employee | null> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = this.db.executeQuery(`
         SELECT 
           id, 
           user_id as userId, 
@@ -155,7 +163,7 @@ class EmployeeService {
 
       // Include user data if requested
       if (includeUser && employee.userId) {
-        employee.user = await this.userService.getUserById(employee.userId);
+        (employee as any).user = await this.userService.getUserById(employee.userId);
       }
 
       return employee;
@@ -173,7 +181,7 @@ class EmployeeService {
    */
   public async getEmployeeByEmployeeId(employeeId: string, includeUser: boolean = false): Promise<Employee | null> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = this.db.executeQuery(`
         SELECT 
           id, 
           user_id as userId, 
@@ -199,7 +207,7 @@ class EmployeeService {
 
       // Include user data if requested
       if (includeUser && employee.userId) {
-        employee.user = await this.userService.getUserById(employee.userId);
+        (employee as any).user = await this.userService.getUserById(employee.userId);
       }
 
       return employee;
@@ -217,12 +225,12 @@ class EmployeeService {
   public async createEmployee(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> {
     try {
       const now = new Date().toISOString();
-      // Format the hire date as ISO string
-      const hireDate = employee.hireDate instanceof Date
+      // Use the type guard to determine if hireDate is a Date.
+      const hireDate = this.isDate(employee.hireDate)
         ? employee.hireDate.toISOString().split('T')[0]
-        : employee.hireDate.toString();
-
-      const id = this.db.insert(`
+        : employee.hireDate;
+      
+      const id = this.db.executeInsert(`
         INSERT INTO employees (
           user_id, 
           employee_id, 
@@ -253,8 +261,8 @@ class EmployeeService {
       return {
         ...employee,
         id,
-        createdAt: new Date(now),
-        updatedAt: new Date(now)
+        createdAt: now,
+        updatedAt: now
       };
     } catch (error) {
       console.error('Error creating employee:', error);
@@ -302,9 +310,9 @@ class EmployeeService {
       
       if (employee.hireDate !== undefined) {
         updates.push('hire_date = ?');
-        const hireDate = employee.hireDate instanceof Date
+        const hireDate = this.isDate(employee.hireDate)
           ? employee.hireDate.toISOString().split('T')[0]
-          : employee.hireDate.toString();
+          : employee.hireDate;
         values.push(hireDate);
       }
       
@@ -338,7 +346,7 @@ class EmployeeService {
         values.push(id);
 
         // Execute the update
-        this.db.run(`
+        this.db.executeUpdate(`
           UPDATE employees
           SET ${updates.join(', ')}
           WHERE id = ?
@@ -348,7 +356,7 @@ class EmployeeService {
         return {
           ...currentEmployee,
           ...employee,
-          updatedAt: new Date(now)
+          updatedAt: now
         };
       }
 
@@ -366,7 +374,7 @@ class EmployeeService {
    */
   public async deleteEmployee(id: number): Promise<boolean> {
     try {
-      const result = this.db.run('DELETE FROM employees WHERE id = ?', [id]);
+      const result = this.db.executeUpdate('DELETE FROM employees WHERE id = ?', [id]);
       return result > 0;
     } catch (error) {
       console.error(`Error deleting employee with ID ${id}:`, error);
@@ -382,7 +390,7 @@ class EmployeeService {
    */
   public async getDirectReports(managerId: number, includeUser: boolean = false): Promise<Employee[]> {
     try {
-      const rows = this.db.query<any>(`
+      const rows = this.db.executeQuery(`
         SELECT 
           id, 
           user_id as userId, 
@@ -401,13 +409,13 @@ class EmployeeService {
         ORDER BY employee_id
       `, [managerId]);
 
-      const employees = rows.map(row => this.mapEmployeeFromRow(row));
+      const employees = rows.map((row: any) => this.mapEmployeeFromRow(row));
 
       // Include user data if requested
       if (includeUser) {
         for (const employee of employees) {
           if (employee.userId) {
-            employee.user = await this.userService.getUserById(employee.userId);
+            (employee as any).user = await this.userService.getUserById(employee.userId);
           }
         }
       }
@@ -431,13 +439,13 @@ class EmployeeService {
       employeeId: row.employeeId,
       department: row.department,
       position: row.position,
-      hireDate: new Date(row.hireDate),
+      hireDate: new Date(row.hireDate).toISOString(),
       managerId: row.managerId,
       employmentStatus: row.employmentStatus as EmploymentStatus,
       emergencyContactName: row.emergencyContactName,
       emergencyContactPhone: row.emergencyContactPhone,
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt)
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: new Date(row.updatedAt).toISOString()
     };
   }
 }
