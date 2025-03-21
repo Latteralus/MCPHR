@@ -1,21 +1,83 @@
-# Mountain Care HR App - Revised MVP Plan
+# Mountain Care HR App - Electron-First Plan
 
 ## Technology Stack
 
 - **Frontend**: React.js
 - **Backend**: Node.js with Express
-- **Database**: PostgreSQL (replacing MongoDB)
-- **ORM**: Sequelize (for database interactions)
+- **Database**: PostgreSQL
+- **ORM**: Sequelize
+- **Desktop Framework**: Electron
 - **Authentication**: JWT (JSON Web Tokens)
-- **UI Framework**: Custom styling with CSS variables (as demonstrated in the dashboard)
+- **UI Framework**: Custom styling with CSS variables
 
-## Database Design - PostgreSQL
+## Architecture Overview
 
-Switching to PostgreSQL provides several advantages for an HR application:
-- Strong data integrity with ACID compliance
-- Powerful querying capabilities
-- Robust transaction support
-- Well-suited for relational data (common in HR systems)
+The application will follow an Electron-first architecture that works both as a desktop application and a web application with minimal code duplication.
+
+### Key Architecture Components:
+
+1. **Shared React Frontend**: Core UI components used in both web and desktop
+2. **Dual-mode Backend**:
+   - API mode for web deployment
+   - Direct integration for Electron
+3. **Database Strategy**:
+   - Desktop: Local SQLite with PostgreSQL schema compatibility
+   - Web: Remote PostgreSQL server
+4. **Synchronization Layer**: For offline-to-online data sync
+
+## Project Structure
+
+```
+mountain-care-hr/
+├── package.json             # Root package with shared dependencies
+├── client/                  # React frontend
+│   ├── public/
+│   │   ├── index.html
+│   │   └── assets/
+│   ├── src/
+│   │   ├── index.js         # Entry point for web
+│   │   ├── electron-index.js # Entry point for Electron
+│   │   ├── App.js
+│   │   ├── components/      # Shared components
+│   │   ├── contexts/        # Shared contexts
+│   │   ├── hooks/           # Shared hooks
+│   │   ├── pages/           # Shared pages
+│   │   ├── services/
+│   │   │   ├── api/         # Web API services
+│   │   │   └── electron/    # Electron IPC services
+│   │   ├── utils/
+│   │   └── styles/
+├── server/                  # Express backend
+│   ├── api/                 # API routes and controllers
+│   ├── db/                  # Database models and migrations
+│   │   ├── models/          # Sequelize models
+│   │   ├── migrations/      # Database migrations
+│   │   └── seeders/         # Seed data
+│   ├── services/            # Business logic services
+│   └── utils/               # Utility functions
+├── electron/                # Electron-specific code
+│   ├── main.js              # Main process
+│   ├── preload.js           # Preload script (secure bridge)
+│   ├── db/                  # Electron database handler
+│   │   ├── sqlite-handler.js # SQLite implementation
+│   │   └── sync-manager.js  # Sync with remote PostgreSQL
+│   ├── services/            # Electron-specific services
+│   │   ├── auth-service.js  # Local authentication
+│   │   ├── file-service.js  # File handling
+│   │   └── ipc-handlers.js  # IPC communication
+│   └── utils/
+├── shared/                  # Code shared between all layers
+│   ├── constants.js
+│   ├── validation.js
+│   └── types.js
+└── configs/                 # Configuration files
+    ├── webpack.config.js    # Web build config
+    ├── electron-forge.config.js # Electron build config
+    ├── sequelize.config.js  # Database config
+    └── jest.config.js       # Testing config
+```
+
+## Database Design
 
 ### Core Database Tables
 
@@ -29,7 +91,8 @@ Switching to PostgreSQL provides several advantages for an HR application:
      last_name VARCHAR(100) NOT NULL,
      role VARCHAR(50) NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     sync_status VARCHAR(50) DEFAULT 'synced'
    );
    ```
 
@@ -47,7 +110,8 @@ Switching to PostgreSQL provides several advantages for an HR application:
      emergency_contact_name VARCHAR(100),
      emergency_contact_phone VARCHAR(20),
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     sync_status VARCHAR(50) DEFAULT 'synced'
    );
    ```
 
@@ -63,7 +127,8 @@ Switching to PostgreSQL provides several advantages for an HR application:
      issuing_authority VARCHAR(100) NOT NULL,
      status VARCHAR(50) NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     sync_status VARCHAR(50) DEFAULT 'synced'
    );
    ```
 
@@ -78,27 +143,12 @@ Switching to PostgreSQL provides several advantages for an HR application:
      status VARCHAR(50) NOT NULL,
      notes TEXT,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     sync_status VARCHAR(50) DEFAULT 'synced'
    );
    ```
 
-5. **leave_requests**
-   ```sql
-   CREATE TABLE leave_requests (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     leave_type VARCHAR(50) NOT NULL,
-     start_date DATE NOT NULL,
-     end_date DATE NOT NULL,
-     status VARCHAR(50) NOT NULL,
-     approved_by INTEGER REFERENCES users(id),
-     reason TEXT,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-   );
-   ```
-
-6. **documents**
+5. **documents**
    ```sql
    CREATE TABLE documents (
      id SERIAL PRIMARY KEY,
@@ -106,12 +156,165 @@ Switching to PostgreSQL provides several advantages for an HR application:
      document_type VARCHAR(100) NOT NULL,
      file_name VARCHAR(255) NOT NULL,
      file_path VARCHAR(255) NOT NULL,
+     file_hash VARCHAR(255) NOT NULL,
      upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
      uploaded_by INTEGER REFERENCES users(id),
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     sync_status VARCHAR(50) DEFAULT 'synced'
    );
    ```
+
+> Note: All tables include a `sync_status` field to manage synchronization between local and remote databases.
+
+## Electron Implementation Details
+
+### Main Process (main.js)
+
+The main process handles:
+- Application lifecycle (startup, shutdown)
+- Window management
+- Local database initialization
+- IPC (Inter-Process Communication) setup
+- System tray integration
+- Auto-updates
+
+```javascript
+// Example main.js structure
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { setupDatabase } = require('./db/sqlite-handler');
+const { registerIpcHandlers } = require('./services/ipc-handlers');
+const { checkForUpdates } = require('./services/updater');
+
+let mainWindow;
+
+async function createWindow() {
+  // Initialize the database
+  await setupDatabase();
+  
+  // Create the browser window
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  // Load the app
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:3000');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../client/build/index.html'));
+  }
+
+  // Register IPC handlers
+  registerIpcHandlers(mainWindow);
+  
+  // Check for updates
+  checkForUpdates();
+}
+
+app.whenReady().then(createWindow);
+
+// App lifecycle events
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+```
+
+### Preload Script (preload.js)
+
+The preload script creates a secure bridge between the renderer process (React) and the main process:
+
+```javascript
+// Example preload.js structure
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Expose protected methods that allow the renderer process to use
+// the ipcRenderer without exposing the entire object
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Authentication
+  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
+  logout: () => ipcRenderer.invoke('auth:logout'),
+  
+  // Database operations
+  getEmployee: (id) => ipcRenderer.invoke('db:getEmployee', id),
+  getEmployees: () => ipcRenderer.invoke('db:getEmployees'),
+  createEmployee: (data) => ipcRenderer.invoke('db:createEmployee', data),
+  updateEmployee: (id, data) => ipcRenderer.invoke('db:updateEmployee', id, data),
+  
+  // File operations
+  saveDocument: (employeeId, file) => ipcRenderer.invoke('file:saveDocument', employeeId, file),
+  getDocuments: (employeeId) => ipcRenderer.invoke('file:getDocuments', employeeId),
+  
+  // Synchronization
+  syncData: () => ipcRenderer.invoke('sync:syncData'),
+  getSyncStatus: () => ipcRenderer.invoke('sync:getStatus'),
+  
+  // App information
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  
+  // Listen to events
+  onSyncUpdate: (callback) => {
+    const listener = (_, status) => callback(status);
+    ipcRenderer.on('sync:status', listener);
+    return () => ipcRenderer.removeListener('sync:status', listener);
+  }
+});
+```
+
+### React Service Adapters
+
+Create service adapters to abstract the data access layer, allowing the React code to work in both web and Electron environments:
+
+```javascript
+// Example service adapter for employees
+export const employeeService = {
+  async getAll() {
+    if (window.electronAPI) {
+      // Electron environment
+      return window.electronAPI.getEmployees();
+    } else {
+      // Web environment
+      const response = await fetch('/api/employees');
+      return response.json();
+    }
+  },
+  
+  async getById(id) {
+    if (window.electronAPI) {
+      return window.electronAPI.getEmployee(id);
+    } else {
+      const response = await fetch(`/api/employees/${id}`);
+      return response.json();
+    }
+  },
+  
+  async create(data) {
+    if (window.electronAPI) {
+      return window.electronAPI.createEmployee(data);
+    } else {
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return response.json();
+    }
+  },
+  
+  // Additional methods...
+};
+```
 
 ## Style Guide
 
@@ -156,214 +359,148 @@ Switching to PostgreSQL provides several advantages for an HR application:
 
 ### UI Components
 
-1. **Cards**
+1. **Windows/macOS Native Elements**
+   - Window controls (minimize, maximize, close)
+   - Native menus
+   - Title bar consistent with OS
+   - System notifications integration
+
+2. **Cards**
    - White background (#FFFFFF)
    - Border radius: 8px
    - Box shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)
    - Padding: 24px (1.5rem)
-   - Margin bottom: 24px (1.5rem)
 
-2. **Buttons**
+3. **Buttons**
    - Border radius: 8px
    - Font weight: 600
    - Padding: 8px 16px (0.5rem 1rem)
-   - Primary Button:
-     - Background: #00796B
-     - Text: White
-     - Hover: #004D40
-   - Secondary Button:
-     - Background: White
-     - Border: 1px solid #E0E0E0
-     - Text: #616161
-     - Hover: Background #F5F5F5
+   - Primary Button: Background #00796B, Text White
+   - Secondary Button: Background White, Border #E0E0E0, Text #616161
 
-3. **Forms**
+4. **Forms**
    - Input height: 40px
    - Border radius: 8px
    - Border color: #E0E0E0
    - Focus border color: #00796B
-   - Error color: #F44336
    - Label color: #616161
-   - Label font size: 14px
    - Input padding: 8px 16px
 
-4. **Tables**
+5. **Tables**
    - Header background: #F5F5F5
    - Border color: #E0E0E0
    - Zebra striping: Even rows #FFFFFF, Odd rows #F9F9F9
    - Row hover: #F5F5F5
-   - Cell padding: 12px 16px
 
-5. **Navigation**
-   - Sidebar background: White
-   - Active link: Text #00796B, Background #F5F5F5
-   - Hover link: Text #00796B, Background #F5F5F5
-   - Icon + Text alignment
-   - Proper spacing: 12px vertical padding
+## Electron-Specific UI Elements
 
-## Extremely MVP Implementation Plan
+1. **Title Bar**
+   - Custom title bar with app logo and name
+   - Window controls matching OS style
+   - Connection status indicator
 
-For the initial MVP focusing on authentication and dashboard:
+2. **System Tray**
+   - App icon in system tray
+   - Quick actions menu
+   - Notification indicators
 
-### Phase 1: Project Setup (1 week)
+3. **Offline Mode Indicators**
+   - Sync status badge
+   - Last synced timestamp
+   - Pending changes counter
 
-1. **Project Initialization**
-   - Set up React frontend project
-   - Set up Node.js backend with Express
-   - Configure PostgreSQL database
-   - Set up Sequelize ORM
-   - Create repository and initial commit
+4. **Desktop Notifications**
+   - License expiration alerts
+   - Sync completion notifications
+   - New task assignments
 
-2. **Initial Configuration**
-   - Set up environment variables
-   - Configure database connection
-   - Set up authentication middleware
-   - Create basic folder structure
+## Implementation Plan (7 Weeks)
 
-### Phase 2: Authentication System (1 week)
+### Phase 1: Project Setup and Core Architecture (2 weeks)
 
-1. **Backend Development**
-   - Create users table migration
-   - Implement user model with Sequelize
-   - Implement authentication controllers:
-     - Login
-     - Logout
-     - Password reset (basic)
-   - Set up JWT token generation and validation
+1. **Week 1: Project Initialization**
+   - Set up React project structure
+   - Set up Electron configuration
+   - Configure PostgreSQL and SQLite databases
+   - Create shared data models
+   - Set up build scripts
 
-2. **Frontend Development**
-   - Create Login page with form validation
-   - Implement authentication context
-   - Setup protected routes
-   - Create logout functionality
+2. **Week 2: Core Services**
+   - Implement authentication services
+   - Create data access layer
+   - Implement IPC communication
+   - Set up synchronization framework
+   - Create service adapters
 
-### Phase 3: Dashboard Implementation (2 weeks)
+### Phase 2: Authentication and Database (1 week)
 
-1. **Backend Development**
-   - Create initial database seed data
-   - Implement basic APIs for dashboard data:
-     - Employee count stats
-     - Attendance stats
-     - Leave request stats
-     - License expiration data
-     - Recent activity data
+1. **Authentication System**
+   - Implement login/logout functionality
+   - Create user session management
+   - Set up JWT for web authentication
+   - Implement secure storage for Electron
 
-2. **Frontend Development**
-   - Implement the dashboard layout:
-     - Sidebar navigation
-     - Header with search and notifications
-     - Main content area
-   - Create dashboard components:
-     - Stat cards
-     - License expiration cards
-     - Activity feed
-     - Quick access module cards
+2. **Database Setup**
+   - Create database migrations
+   - Set up SQLite for desktop
+   - Configure PostgreSQL for web
+   - Implement initial seed data
 
-### Phase 4: Testing and Refinement (1 week)
+### Phase 3: Dashboard and UI Implementation (2 weeks)
+
+1. **Week 4: UI Framework**
+   - Implement shared component library
+   - Create layout components (sidebar, header)
+   - Implement responsive design
+   - Create form components
+
+2. **Week 5: Dashboard Implementation**
+   - Create dashboard page
+   - Implement stat cards
+   - Create license expiration component
+   - Implement activity feed
+   - Add quick access module cards
+
+### Phase 4: Electron-Specific Features (1 week)
+
+1. **Desktop Integration**
+   - Implement system tray functionality
+   - Create native menu options
+   - Set up auto-updates
+   - Add desktop notifications
+   - Implement offline mode
+
+### Phase 5: Testing and Refinement (1 week)
 
 1. **Testing**
-   - Implement unit tests for authentication
-   - Test dashboard data retrieval
-   - Perform UI testing
-   - Cross-browser compatibility testing
+   - Unit tests for core services
+   - Integration tests for data flow
+   - UI testing for both web and desktop
+   - Offline synchronization testing
 
 2. **Refinement**
-   - Address any bugs or issues
-   - Optimize performance
-   - Improve responsive design
-   - Final styling adjustments
+   - Performance optimization
+   - Bug fixes
+   - UX improvements
+   - Documentation
 
-## File Structure
+## Deployment Strategy
 
-### Frontend (React)
+### Desktop Application
+- Use Electron Forge for packaging
+- Create installers for Windows, macOS, Linux
+- Implement auto-update system
+- Code signing for macOS and Windows
 
-```
-client/
-├── public/
-│   ├── index.html
-│   ├── favicon.ico
-│   └── assets/
-│       └── logo.svg              # Mountain Care logo
-├── src/
-│   ├── index.js
-│   ├── App.js
-│   ├── config/
-│   │   └── config.js
-│   ├── api/
-│   │   ├── axios.js
-│   │   └── auth.js
-│   ├── components/
-│   │   ├── common/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   ├── Card.jsx
-│   │   │   ├── Button.jsx
-│   │   │   └── Loader.jsx
-│   │   └── dashboard/
-│   │       ├── Dashboard.jsx
-│   │       ├── StatCard.jsx
-│   │       ├── ActivityFeed.jsx
-│   │       ├── LicenseExpirations.jsx
-│   │       └── ModuleCard.jsx
-│   ├── contexts/
-│   │   └── AuthContext.jsx
-│   ├── hooks/
-│   │   └── useAuth.js
-│   ├── pages/
-│   │   ├── Login.jsx
-│   │   └── Dashboard.jsx
-│   ├── utils/
-│   │   └── helpers.js
-│   └── styles/
-│       ├── index.css
-│       ├── variables.css
-│       └── components/
-│           ├── login.css
-│           └── dashboard.css
-└── package.json
-```
-
-### Backend (Node.js + PostgreSQL)
-
-```
-server/
-├── server.js
-├── config/
-│   ├── database.js               # PostgreSQL configuration
-│   ├── config.js
-│   └── passport.js
-├── api/
-│   ├── routes/
-│   │   └── auth.js
-│   ├── controllers/
-│   │   └── auth.js
-│   └── middleware/
-│       └── auth.js
-├── models/
-│   ├── index.js                  # Sequelize initialization
-│   └── user.js                   # User model
-├── migrations/                   # Sequelize migrations
-│   └── 20250321000000-create-users.js
-├── seeders/                      # Sequelize seeders
-│   └── 20250321000000-demo-users.js
-├── utils/
-│   └── helpers.js
-├── package.json
-└── README.md
-```
-
-## Timeline
-
-- **Week 1**: Project setup and initial configuration
-- **Week 2**: Authentication system implementation
-- **Weeks 3-4**: Dashboard implementation 
-- **Week 5**: Testing, refinement, and deployment
-
-Total time for extremely MVP: **5 weeks**
+### Web Application
+- Deploy Express backend to a Node.js hosting service
+- Set up PostgreSQL database on a managed service
+- Configure HTTPS and security headers
+- Set up CI/CD pipeline
 
 ## Future Expansion
 
-After the extremely MVP is completed, the system can be expanded module by module in this order of priority:
+After the MVP is completed, additional modules can be added in this order:
 
 1. Employee Management
 2. Attendance Tracking
@@ -373,4 +510,4 @@ After the extremely MVP is completed, the system can be expanded module by modul
 6. Onboarding/Offboarding
 7. Reporting and Analytics
 
-Each module will follow the established architecture and styling to maintain consistency throughout the application.
+Each module will follow the established architecture and styling to maintain consistency across both web and desktop platforms.
