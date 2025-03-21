@@ -89,8 +89,11 @@ const EmployeeList: React.FC = () => {
         setEmployees(employeeList);
         setFilteredEmployees(employeeList);
         
-        // Extract unique departments for filter
-        const uniqueDepartments = [...new Set(employeeList.map(emp => emp.department))];
+        // Extract unique departments for filter - using alternate approach to avoid TS2802 error
+        const departmentsMap: {[key: string]: boolean} = {};
+        employeeList.forEach(emp => departmentsMap[emp.department] = true);
+        const uniqueDepartments = Object.keys(departmentsMap);
+        
         setDepartments(uniqueDepartments);
       } catch (err) {
         console.error('Error fetching employees:', err);
