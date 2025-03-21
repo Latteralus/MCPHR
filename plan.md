@@ -1,12 +1,11 @@
-
-You are an expert in full-stack development. I have a project plan that needs refining and code suggestions. The project is a browser-based HR app called “Mountain Care HR” (MCPHR). I want to start with a local, in-browser SQLite database using `sql.js` but ensure it can be easily ported to PostgreSQL later. Below are all the relevant details:
+You are an expert in full-stack development. I have a project plan that needs refining and code suggestions. The project is a browser-based HR app called "Mountain Care HR" (MCPHR). I want to start with a local, in-browser SQLite database using `sql.js` but ensure it can be easily ported to PostgreSQL later. Below are all the relevant details:
 
 ================================================================================
 # Mountain Care HR App (Browser-Based)
 
 ## Technology Stack
 
-- **Frontend**: React.js  
+- **Frontend**: React.js with TypeScript 
 - **Backend**: Node.js with Express (optional, for future expansion)  
 - **Database (Initial)**: `sql.js` (WebAssembly port of SQLite)  
 - **Database (Future)**: PostgreSQL (for production or remote usage)  
@@ -21,14 +20,14 @@ The application will be a **browser-based** application that can **later** integ
 ### Key Architecture Components:
 
 1. **Shared React Frontend**:  
-   - Core UI built with React.  
-   - `sql.js` runs in the browser, storing data in memory or optionally persisting via IndexedDB.
+   - Core UI built with React and TypeScript.  
+   - `sql.js` runs in the browser, storing data in memory and persisting via IndexedDB.
 
 2. **Optional/Future Node.js Backend** (not needed immediately):  
    - When we need multi-user functionality or a production environment, we can introduce an Express server that connects to a remote PostgreSQL database.
 
 3. **Database Strategy**:  
-   - **Initial**: `sql.js` in the browser (compatible with the same schemas we’ll use in PostgreSQL).  
+   - **Initial**: `sql.js` in the browser (compatible with the same schemas we'll use in PostgreSQL).  
    - **Future**: PostgreSQL for robust data storage.
 
 4. **Synchronization Layer**:  
@@ -38,37 +37,45 @@ The application will be a **browser-based** application that can **later** integ
 
 ```
 MCPHR/
-├── package.json             # Root package for both client & optional server deps
-├── client/                  # React frontend
-│   ├── public/
-│   │   ├── index.html
-│   │   └── assets/
-│   ├── src/
-│   │   ├── index.js         # Entry point for web
-│   │   ├── App.js
-│   │   ├── components/      # Shared components
-│   │   ├── contexts/        # Shared contexts
-│   │   ├── hooks/           # Shared hooks
-│   │   ├── pages/           # Shared pages
-│   │   ├── services/        # Where we put sql.js usage (or future API calls)
-│   │   ├── utils/
-│   │   └── styles/
-├── server/                  # (Optional) Express backend
-│   ├── api/                 # API routes and controllers
-│   ├── db/                  # Database models, migrations (for PostgreSQL)
-│   │   ├── models/
-│   │   ├── migrations/
-│   │   └── seeders/
-│   ├── services/            # Business logic services
-│   └── utils/               # Utility functions
-├── shared/                  # Code shared between front & future server
-│   ├── constants.js
-│   ├── validation.js
-│   └── types.js
-└── configs/                 # Configuration files
-    ├── webpack.config.js    # Web build config (if not using Create React App)
-    ├── sequelize.config.js  # DB config for PostgreSQL
-    └── jest.config.js       # Testing config
+├── package.json             # Root package for client
+├── tsconfig.json            # TypeScript configuration with path aliases
+├── public/                  # Static assets
+│   ├── index.html
+│   └── assets/
+├── src/                     # React frontend source code
+│   ├── index.tsx            # Entry point
+│   ├── App.tsx              # Main App component with routing
+│   ├── components/          # Shared components
+│   │   ├── Layout/          # Layout components
+│   │   │   ├── MainLayout.tsx  # Main layout with sidebar/header
+│   │   │   └── Layout.css      # Layout styles
+│   │   └── LoadingSpinner.tsx # Loading indicator
+│   ├── contexts/            # React context providers
+│   │   ├── AuthContext.tsx  # Authentication state management
+│   │   └── DatabaseContext.tsx # Database connection management
+│   ├── hooks/               # Custom React hooks
+│   ├── pages/               # Application pages
+│   │   ├── Login/           # Login page
+│   │   ├── Dashboard/       # Dashboard page
+│   │   ├── Employees/       # Employees pages
+│   │   ├── Licenses/        # License tracking pages
+│   │   ├── Attendance/      # Attendance tracking
+│   │   └── Settings/        # Application settings
+│   ├── services/            # Services layer for data access
+│   │   ├── DatabaseService.ts # sql.js connection management
+│   │   ├── UserService.ts   # User data operations
+│   │   ├── EmployeeService.ts # Employee data operations
+│   │   ├── LicenseService.ts # License data operations
+│   │   └── AuthService.ts   # Authentication services
+│   ├── types/               # TypeScript type definitions
+│   │   └── index.ts         # Shared types (User, Employee, etc.)
+│   ├── utils/               # Utility functions
+│   └── styles/              # Global styles
+│       └── global.css       # CSS variables and base styles
+└── shared/                  # Code shared between front & future server
+    ├── constants.js         # Shared constants
+    ├── validation.js        # Validation rules
+    └── types.js             # Shared type definitions
 ```
 
 ## Database Design
@@ -77,13 +84,13 @@ MCPHR/
 
 1. **users**
    ```sql
-   CREATE TABLE users (
-     id SERIAL PRIMARY KEY,
-     email VARCHAR(255) UNIQUE NOT NULL,
-     password VARCHAR(255) NOT NULL,
-     first_name VARCHAR(100) NOT NULL,
-     last_name VARCHAR(100) NOT NULL,
-     role VARCHAR(50) NOT NULL,
+   CREATE TABLE IF NOT EXISTS users (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     email TEXT UNIQUE NOT NULL,
+     password TEXT NOT NULL,
+     first_name TEXT NOT NULL,
+     last_name TEXT NOT NULL,
+     role TEXT NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    );
@@ -91,70 +98,76 @@ MCPHR/
 
 2. **employees**
    ```sql
-   CREATE TABLE employees (
-     id SERIAL PRIMARY KEY,
-     user_id INTEGER REFERENCES users(id),
-     employee_id VARCHAR(50) UNIQUE NOT NULL,
-     department VARCHAR(100) NOT NULL,
-     position VARCHAR(100) NOT NULL,
+   CREATE TABLE IF NOT EXISTS employees (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_id INTEGER,
+     employee_id TEXT UNIQUE NOT NULL,
+     department TEXT NOT NULL,
+     position TEXT NOT NULL,
      hire_date DATE NOT NULL,
-     manager_id INTEGER REFERENCES employees(id),
-     employment_status VARCHAR(50) NOT NULL,
-     emergency_contact_name VARCHAR(100),
-     emergency_contact_phone VARCHAR(20),
+     manager_id INTEGER,
+     employment_status TEXT NOT NULL,
+     emergency_contact_name TEXT,
+     emergency_contact_phone TEXT,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (user_id) REFERENCES users(id),
+     FOREIGN KEY (manager_id) REFERENCES employees(id)
    );
    ```
 
 3. **licenses**
    ```sql
-   CREATE TABLE licenses (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     license_type VARCHAR(100) NOT NULL,
-     license_number VARCHAR(100) NOT NULL,
+   CREATE TABLE IF NOT EXISTS licenses (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     employee_id INTEGER,
+     license_type TEXT NOT NULL,
+     license_number TEXT NOT NULL,
      issue_date DATE NOT NULL,
      expiration_date DATE NOT NULL,
-     issuing_authority VARCHAR(100) NOT NULL,
-     status VARCHAR(50) NOT NULL,
+     issuing_authority TEXT NOT NULL,
+     status TEXT NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (employee_id) REFERENCES employees(id)
    );
    ```
 
 4. **attendance**
    ```sql
-   CREATE TABLE attendance (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
+   CREATE TABLE IF NOT EXISTS attendance (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     employee_id INTEGER,
      date DATE NOT NULL,
      clock_in TIMESTAMP,
      clock_out TIMESTAMP,
-     status VARCHAR(50) NOT NULL,
+     status TEXT NOT NULL,
      notes TEXT,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (employee_id) REFERENCES employees(id)
    );
    ```
 
 5. **documents**
    ```sql
-   CREATE TABLE documents (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     document_type VARCHAR(100) NOT NULL,
-     file_name VARCHAR(255) NOT NULL,
-     file_path VARCHAR(255) NOT NULL,
-     file_hash VARCHAR(255) NOT NULL,
+   CREATE TABLE IF NOT EXISTS documents (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     employee_id INTEGER,
+     document_type TEXT NOT NULL,
+     file_name TEXT NOT NULL,
+     file_path TEXT NOT NULL,
+     file_hash TEXT NOT NULL,
      upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     uploaded_by INTEGER REFERENCES users(id),
+     uploaded_by INTEGER,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (employee_id) REFERENCES employees(id),
+     FOREIGN KEY (uploaded_by) REFERENCES users(id)
    );
    ```
 
-*(Removed `sync_status` fields, as we’re focusing on a straightforward local approach. You can reintroduce them if you want an offline-online sync system.)*
+*(Removed `sync_status` fields, as we're focusing on a straightforward local approach. You can reintroduce them if you want an offline-online sync system.)*
 
 ## Style Guide
 
@@ -234,52 +247,53 @@ MCPHR/
 
 ## Implementation Plan (Approx. 7 Weeks)
 
-### Phase 1: Project Setup and Core Architecture (2 weeks)
+### Phase 1: Project Setup and Core Architecture (2 weeks) - COMPLETED
 
-- **Week 1**:  
-  1. Initialize React project (Create React App or Vite).  
-  2. Install `sql.js`.  
-  3. Set up local in-browser database logic (open DB in memory, possibly store in IndexedDB).
-  4. Basic folder structure in `client/`.
+- ~~**Week 1**:~~  
+  1. ~~Initialize React project with TypeScript.~~
+  2. ~~Install `sql.js` and other dependencies.~~
+  3. ~~Set up local in-browser database logic (open DB in memory, store in IndexedDB).~~
+  4. ~~Basic folder structure.~~
 
 - **Week 2**:  
-  1. Create “Users” and “Employees” tables in `sql.js`.  
-  2. Build minimal CRUD: add/edit employees.  
-  3. Optional: Set up Node/Express skeleton for future expansions (if desired).
+  1. ~~Create core services (UserService, EmployeeService, LicenseService).~~
+  2. ~~Set up authentication services with JWT.~~
+  3. ~~Create React contexts for state management.~~
+  4. Build UI components for layout and navigation.
 
-### Phase 2: Authentication and Database (1 week)
+### Phase 2: Authentication and Core Pages (1 week)
 
-- Implement authentication flows (JWT or local mock):
-  - Basic login form, store token in localStorage or an app state.
-  - If you have a Node backend, set up endpoints for `POST /login`.
-- Expand tables for licenses, attendance, documents in `sql.js`.
-- Write initial seeds or demo data.
+- Implement authentication flows:
+  - Build login page with forms.
+  - Create protected routes.
+  - Store JWT token in localStorage.
+- Create initial database seed data for development.
+- Build dashboard and navigation.
 
-### Phase 3: Dashboard and UI Implementation (2 weeks)
+### Phase 3: Employee and License Management (2 weeks)
 
 - **Week 4**:
-  1. UI Framework / Layout
-  2. Shared component library (cards, buttons, forms, etc.)
-  3. Responsive design basics
+  1. Employee listing page with search/filter
+  2. Employee detail/edit forms
+  3. Employee creation flow
 
 - **Week 5**:
-  1. Dashboard page (stats, quick links, etc.)
-  2. Implement license tracking, basic reminders
-  3. Add a basic “activity feed” or “recent changes”
+  1. License tracking pages
+  2. License expiry notifications
+  3. License detail/edit forms
 
-### Phase 4: (Optional) Node.js Backend Features (1 week)
+### Phase 4: Additional Features (1 week)
 
-- If going multi-user or production:
-  - Connect Node + Express to a remote PostgreSQL instance
-  - Migrate `sql.js` queries to a set of REST endpoints
-  - Keep the same schema definitions so the switch is straightforward
+- Attendance tracking module
+- Document upload/management (file storage in IndexedDB)
+- Reporting and data visualization
 
 ### Phase 5: Testing and Refinement (1 week)
 
 - **Testing**:
   1. Unit tests for core React components
   2. Integration tests for `sql.js` data flows
-  3. Potential server tests if a backend is introduced
+  3. End-to-end testing of key workflows
 - **Refinement**:
   1. Performance optimization
   2. Bug fixes
@@ -296,7 +310,7 @@ MCPHR/
   - Host your Express server (if used) on Heroku, Render, AWS, etc.
   - Use a managed PostgreSQL service for production data.
 - **Security**:
-  - For purely local usage in the browser, data is stored inside the user’s browser. Not recommended for sensitive production data without encryption or a secure server.
+  - For purely local usage in the browser, data is stored inside the user's browser. Not recommended for sensitive production data without encryption or a secure server.
 
 ## Future Expansion
 
@@ -309,58 +323,118 @@ MCPHR/
 
 ================================================================================
 
-# Sample package.json (React + Node)
+# Sample package.json (React + TypeScript)
 
-```
+```json
 {
-  "name": "mcphr-browser",
-  "version": "1.0.0",
-  "description": "Mountain Care HR App - Browser-based using sql.js, with future PostgreSQL support.",
-  "main": "server/index.js",
-  "scripts": {
-    "start:client": "react-scripts start",
-    "start:server": "nodemon server/index.js",
-    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "lint": "eslint ."
-  },
+  "name": "mcphr",
+  "version": "0.1.0",
+  "private": true,
   "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.61",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "idb": "^7.1.1",
+    "jsonwebtoken": "^9.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^6.18.0",
+    "react-scripts": "5.0.1",
     "sql.js": "^1.8.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "pg": "^8.9.0",
-    "sequelize": "^6.28.0",
-    "jsonwebtoken": "^8.5.1"
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "react-scripts": "^5.0.1",
-    "eslint": "^8.0.0",
-    "nodemon": "^2.0.20",
-    "concurrently": "^7.0.0"
+    "@types/jsonwebtoken": "^9.0.3",
+    "@types/sql.js": "^1.4.5",
+    "wasm-loader": "^1.3.0"
   },
-  "author": "Your Name or Team",
-  "license": "MIT"
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
 }
 ```
 
 ================================================================================
 
+## Progress Update (Week 1)
+
+The following items have been completed in the initial setup phase:
+
+1. **Project Structure and Configuration**
+   - Created React + TypeScript project with proper folder structure
+   - Set up TypeScript configuration with path aliases
+   - Added global CSS styles and design system
+   
+2. **Database Implementation**
+   - Implemented DatabaseService using sql.js for in-browser SQLite
+   - Added persistence with IndexedDB for data storage between sessions
+   - Created database tables with proper schemas
+   - Added indexing for performance optimization
+   
+3. **Core Services**
+   - Created UserService for user management
+   - Created EmployeeService for employee data
+   - Created LicenseService for license tracking
+   - Implemented AuthService with JWT authentication
+   
+4. **State Management**
+   - Created AuthContext for managing authentication state
+   - Created DatabaseContext for database connection management
+   
+5. **UI Components**
+   - Implemented MainLayout component with responsive sidebar
+   - Created LoadingSpinner component for handling loading states
+   
+6. **Routing**
+   - Set up router with protected routes
+   - Added route configuration for main app sections
+
+## Next Steps (Week 2)
+
+1. Implement the Login page with forms and authentication
+2. Build the Dashboard with widgets and metrics
+3. Create employee listing and detail pages
+4. Implement license tracking views
+5. Add seed data for testing
+
+================================================================================
+
 **Task**:
-1. Review this entire plan and confirm the best steps to build a browser-based HR app using `sql.js`, ensuring it can migrate to PostgreSQL later.
-2. Suggest any missing pieces or optimizations for local data handling, indexing, or future Node/Express usage.
-3. Provide relevant code snippets or best practices you think might help in implementing this plan.
+1. Continue building the HR app according to the plan above.
+2. Implement the Login page as the next step, reusing the designs from login.html provided earlier.
+3. Create database seed functions to populate initial test data.
 
 ```
 
 ---
 
 **Instructions**:  
-- Copy/paste the above **prompt** into ChatGPT (or another LLM) any time you want to refine or generate code for your browser-based HR app.  
-- It includes the full style guide, original tables, and updated approach with `sql.js`.  
-- We have **removed all Electron references** and **adapted** the timeline & architecture for a **purely browser-based** solution with an optional server in the future. Enjoy!
+- Use this updated plan as a guide for continuing the development of your browser-based HR app.
+- The structure now reflects the actual implementation with TypeScript and the service pattern.
+- Follow the "Next Steps" section to prioritize upcoming development tasks.
