@@ -6,15 +6,16 @@
     "browser": {
         "fs": false,
         "path": false,
-        "os": false
+        "os": false,
+        "vm": false
     },
     "scripts": {
         "start:client": "craco start",
         "start:server": "nodemon server/index.js",
         "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
-        "build": "GENERATE_SOURCEMAP=false craco build",
+        "build": "craco build",
         "postbuild": "cp -r node_modules/sql.js/dist/*.wasm build/static/js/",
-        "vercel-build": "npm run build && npm run postbuild",
+        "vercel-build": "craco build && cp -r node_modules/sql.js/dist/*.wasm build/static/js/",
         "test": "craco test --env=jsdom",
         "lint": "eslint ."
     },
@@ -40,6 +41,7 @@
         "stream-browserify": "^3.0.0",
         "url": "^0.11.4",
         "util": "^0.12.5",
+        "vm-browserify": "^1.1.2",
         "web-vitals": "^4.2.4",
         "buffer": "^6.0.3",
         "crypto-browserify": "^3.12.1"

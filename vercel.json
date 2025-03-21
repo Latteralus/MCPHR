@@ -6,13 +6,14 @@
         "use": "@vercel/static-build",
         "config": { 
           "distDir": "build",
-          "buildCommand": "npm run build"
+          "buildCommand": "npm install && npm run vercel-build"
         }
       }
     ],
     "routes": [
       { "handle": "filesystem" },
       { "src": "/static/(.*)", "dest": "/static/$1" },
+      { "src": "/assets/(.*)", "dest": "/assets/$1" },
       { "src": "/favicon.ico", "dest": "/favicon.ico" },
       { "src": "/manifest.json", "dest": "/manifest.json" },
       { "src": "/logo(.*).png", "dest": "/logo$1.png" },

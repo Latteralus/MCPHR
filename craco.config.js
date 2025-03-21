@@ -19,6 +19,7 @@ module.exports = {
         url: require.resolve('url/'),
         zlib: require.resolve('browserify-zlib'),
         querystring: require.resolve('querystring-es3'),
+        vm: require.resolve('vm-browserify'),
         net: false,
         tls: false,
         child_process: false

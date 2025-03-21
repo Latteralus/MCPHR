@@ -54,9 +54,21 @@ export class DatabaseService {
    */
   private async initSql(): Promise<void> {
     try {
-      DatabaseService.SQL = await initSqlJs({
-        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
-      });
+      // Try to load from local path first
+      const wasmUrl = '/static/js/sql-wasm.wasm'; // This is where we'll copy it with postbuild
+      
+      try {
+        DatabaseService.SQL = await initSqlJs({
+          locateFile: () => wasmUrl
+        });
+      } catch (localError) {
+        console.warn('Failed to load SQL.js from local path, trying CDN fallback:', localError);
+        
+        // Fallback to CDN
+        DatabaseService.SQL = await initSqlJs({
+          locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+        });
+      }
     } catch (error) {
       console.error('Failed to initialize SQL.js:', error);
       throw error;
