@@ -2,19 +2,25 @@ import DatabaseService from './DatabaseService';
 import EmployeeService from './EmployeeService';
 import { License, LicenseStatus } from '../types';
 
+/**
+ * Converts a value (string or Date) into an ISO date string (YYYY-MM-DD).
+ * If the value is a Date, it is formatted accordingly; otherwise, the value is cast to a string.
+ */
+function formatDate(date: unknown): string {
+  return date instanceof Date ? date.toISOString().split('T')[0] : String(date);
+}
+
 class LicenseService {
   private db: DatabaseService;
   private employeeService: EmployeeService;
 
   constructor() {
-    this.db = DatabaseService.getInstance();
+    this.db = new DatabaseService();
     this.employeeService = new EmployeeService();
   }
 
   /**
    * Get all licenses with optional filters
-   * @param options Filter options
-   * @returns Array of licenses
    */
   public async getAllLicenses(options: {
     includeEmployee?: boolean;
@@ -24,6 +30,8 @@ class LicenseService {
     expiringWithinDays?: number;
   } = {}): Promise<License[]> {
     try {
+      await this.db.openDatabase();
+
       let query = `
         SELECT 
           id, 
@@ -42,22 +50,22 @@ class LicenseService {
       const params: any[] = [];
       const conditions: string[] = [];
 
-      if (options.employeeId) {
+      if (options.employeeId !== undefined) {
         conditions.push('employee_id = ?');
         params.push(options.employeeId);
       }
 
-      if (options.licenseType) {
+      if (options.licenseType !== undefined) {
         conditions.push('license_type = ?');
         params.push(options.licenseType);
       }
 
-      if (options.status) {
+      if (options.status !== undefined) {
         conditions.push('status = ?');
         params.push(options.status);
       }
 
-      if (options.expiringWithinDays) {
+      if (options.expiringWithinDays !== undefined) {
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + options.expiringWithinDays);
         conditions.push('expiration_date <= ? AND expiration_date >= date("now")');
@@ -70,13 +78,13 @@ class LicenseService {
 
       query += ' ORDER BY expiration_date';
 
-      const rows = this.db.query<any>(query, params);
-      const licenses = rows.map(row => this.mapLicenseFromRow(row));
+      const rows = await this.db.executeQuery(query, params);
+      const licenses = rows.map((row: any) => this.mapLicenseFromRow(row));
 
-      // Include employee data if requested
       if (options.includeEmployee) {
         for (const license of licenses) {
-          license.employee = await this.employeeService.getEmployeeById(license.employeeId, true);
+          // Since License doesn’t include an "employee" property, we cast it to any here.
+          (license as any).employee = await this.employeeService.getEmployeeById(license.employeeId, true);
         }
       }
 
@@ -89,13 +97,12 @@ class LicenseService {
 
   /**
    * Get a license by ID
-   * @param id License ID
-   * @param includeEmployee Whether to include employee data
-   * @returns License object or null if not found
    */
   public async getLicenseById(id: number, includeEmployee: boolean = false): Promise<License | null> {
     try {
-      const rows = this.db.query<any>(`
+      await this.db.openDatabase();
+
+      const rows = await this.db.executeQuery(`
         SELECT 
           id, 
           employee_id as employeeId, 
@@ -117,9 +124,8 @@ class LicenseService {
 
       const license = this.mapLicenseFromRow(rows[0]);
 
-      // Include employee data if requested
       if (includeEmployee) {
-        license.employee = await this.employeeService.getEmployeeById(license.employeeId, true);
+        (license as any).employee = await this.employeeService.getEmployeeById(license.employeeId, true);
       }
 
       return license;
@@ -131,9 +137,6 @@ class LicenseService {
 
   /**
    * Get all licenses for an employee
-   * @param employeeId Employee ID
-   * @param includeEmployee Whether to include employee data
-   * @returns Array of licenses for the employee
    */
   public async getLicensesByEmployeeId(employeeId: number, includeEmployee: boolean = false): Promise<License[]> {
     return this.getAllLicenses({ employeeId, includeEmployee });
@@ -141,9 +144,6 @@ class LicenseService {
 
   /**
    * Get all licenses expiring within a certain number of days
-   * @param days Number of days to check
-   * @param includeEmployee Whether to include employee data
-   * @returns Array of licenses expiring within the specified days
    */
   public async getLicensesExpiringWithinDays(days: number, includeEmployee: boolean = false): Promise<License[]> {
     return this.getAllLicenses({ expiringWithinDays: days, includeEmployee });
@@ -151,22 +151,16 @@ class LicenseService {
 
   /**
    * Create a new license
-   * @param license License data
-   * @returns Created license with ID
    */
   public async createLicense(license: Omit<License, 'id' | 'createdAt' | 'updatedAt'>): Promise<License> {
     try {
-      const now = new Date().toISOString();
-      // Format the dates as ISO strings
-      const issueDate = license.issueDate instanceof Date
-        ? license.issueDate.toISOString().split('T')[0]
-        : license.issueDate.toString();
-      
-      const expirationDate = license.expirationDate instanceof Date
-        ? license.expirationDate.toISOString().split('T')[0]
-        : license.expirationDate.toString();
+      await this.db.openDatabase();
 
-      const id = this.db.insert(`
+      const now = new Date().toISOString();
+      const issueDate = formatDate(license.issueDate);
+      const expirationDate = formatDate(license.expirationDate);
+
+      const id = await this.db.executeInsert(`
         INSERT INTO licenses (
           employee_id, 
           license_type, 
@@ -193,8 +187,8 @@ class LicenseService {
       return {
         ...license,
         id,
-        createdAt: new Date(now),
-        updatedAt: new Date(now)
+        createdAt: now,
+        updatedAt: now
       };
     } catch (error) {
       console.error('Error creating license:', error);
@@ -204,19 +198,16 @@ class LicenseService {
 
   /**
    * Update an existing license
-   * @param id License ID
-   * @param license License data to update
-   * @returns Updated license
    */
   public async updateLicense(id: number, license: Partial<Omit<License, 'id' | 'createdAt' | 'updatedAt'>>): Promise<License> {
     try {
-      // Get the current license to merge with updates
+      await this.db.openDatabase();
+
       const currentLicense = await this.getLicenseById(id);
       if (!currentLicense) {
         throw new Error(`License with ID ${id} not found`);
       }
 
-      // Build the SQL SET clause dynamically
       const updates: string[] = [];
       const values: any[] = [];
 
@@ -224,64 +215,55 @@ class LicenseService {
         updates.push('employee_id = ?');
         values.push(license.employeeId);
       }
-      
+
       if (license.licenseType !== undefined) {
         updates.push('license_type = ?');
         values.push(license.licenseType);
       }
-      
+
       if (license.licenseNumber !== undefined) {
         updates.push('license_number = ?');
         values.push(license.licenseNumber);
       }
-      
+
       if (license.issueDate !== undefined) {
         updates.push('issue_date = ?');
-        const issueDate = license.issueDate instanceof Date
-          ? license.issueDate.toISOString().split('T')[0]
-          : license.issueDate.toString();
-        values.push(issueDate);
+        values.push(formatDate(license.issueDate));
       }
-      
+
       if (license.expirationDate !== undefined) {
         updates.push('expiration_date = ?');
-        const expirationDate = license.expirationDate instanceof Date
-          ? license.expirationDate.toISOString().split('T')[0]
-          : license.expirationDate.toString();
-        values.push(expirationDate);
+        values.push(formatDate(license.expirationDate));
       }
-      
+
       if (license.issuingAuthority !== undefined) {
         updates.push('issuing_authority = ?');
         values.push(license.issuingAuthority);
       }
-      
+
       if (license.status !== undefined) {
         updates.push('status = ?');
         values.push(license.status);
       }
 
-      // Only update if there are changes
       if (updates.length > 0) {
         const now = new Date().toISOString();
         updates.push('updated_at = ?');
         values.push(now);
-        
-        // Add the ID as the last parameter
+
+        // Add the ID as the final parameter.
         values.push(id);
 
-        // Execute the update
-        this.db.run(`
+        await this.db.executeUpdate(`
           UPDATE licenses
           SET ${updates.join(', ')}
           WHERE id = ?
         `, values);
 
-        // Return the updated license
         return {
           ...currentLicense,
           ...license,
-          updatedAt: new Date(now)
+          updatedAt: now
         };
       }
 
@@ -294,12 +276,12 @@ class LicenseService {
 
   /**
    * Delete a license
-   * @param id License ID
-   * @returns True if deleted, false if not found
    */
   public async deleteLicense(id: number): Promise<boolean> {
     try {
-      const result = this.db.run('DELETE FROM licenses WHERE id = ?', [id]);
+      await this.db.openDatabase();
+
+      const result = await this.db.executeUpdate('DELETE FROM licenses WHERE id = ?', [id]);
       return result > 0;
     } catch (error) {
       console.error(`Error deleting license with ID ${id}:`, error);
@@ -309,8 +291,6 @@ class LicenseService {
 
   /**
    * Map a database row to a License object
-   * @param row Database row
-   * @returns License object
    */
   private mapLicenseFromRow(row: any): License {
     return {
@@ -318,12 +298,12 @@ class LicenseService {
       employeeId: row.employeeId,
       licenseType: row.licenseType,
       licenseNumber: row.licenseNumber,
-      issueDate: new Date(row.issueDate),
-      expirationDate: new Date(row.expirationDate),
-      issuingAuthority: row.issuingAuthority,
+      issueDate: row.issue_date,
+      expirationDate: row.expiration_date,
+      issuingAuthority: row.issuing_authority,
       status: row.status as LicenseStatus,
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt)
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
   }
 }

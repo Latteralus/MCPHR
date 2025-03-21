@@ -79,6 +79,10 @@ export class DatabaseService {
       // Get IndexedDB instance
       const idb = await DatabaseService.idbPromise;
       
+      if (!idb) {
+        throw new Error('Failed to initialize IndexedDB');
+      }
+      
       // Try to load the database from IndexedDB
       const dbData = await idb.get('sqliteDB', DatabaseService.DB_KEY);
       
@@ -122,6 +126,11 @@ export class DatabaseService {
       
       // Save to IndexedDB
       const idb = await DatabaseService.idbPromise;
+      
+      if (!idb) {
+        throw new Error('Failed to initialize IndexedDB');
+      }
+      
       await idb.put('sqliteDB', data, DatabaseService.DB_KEY);
     } catch (error) {
       console.error('Failed to save database:', error);
@@ -310,3 +319,6 @@ export class DatabaseService {
     }
   }
 }
+
+// Also export as default for imports like: import DatabaseService from './DatabaseService'
+export default DatabaseService;

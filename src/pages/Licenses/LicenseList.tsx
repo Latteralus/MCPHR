@@ -76,8 +76,11 @@ const LicenseList: React.FC = () => {
         setLicenses(licenseList);
         setFilteredLicenses(licenseList);
         
-        // Extract unique license types for filter
-        const uniqueTypes = [...new Set(licenseList.map(lic => lic.licenseType))];
+        // Extract unique license types for filter - using alternate approach to avoid TS2802 error
+        const licenseTypesMap: {[key: string]: boolean} = {};
+        licenseList.forEach(lic => licenseTypesMap[lic.licenseType] = true);
+        const uniqueTypes = Object.keys(licenseTypesMap);
+        
         setLicenseTypes(uniqueTypes);
       } catch (err) {
         console.error('Error fetching licenses:', err);
