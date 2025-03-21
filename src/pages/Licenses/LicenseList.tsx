@@ -245,6 +245,10 @@ const LicenseList: React.FC = () => {
                 value={statusFilter}
                 onChange={handleStatusFilter}
               >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="pending">Pending</option>
                 <option value="revoked">Revoked</option>
               </select>
             </div>
@@ -378,8 +382,4 @@ const formatStatus = (status: string): string => {
   }
 };
 
-export default LicenseList; value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-                <option value="pending">Pending</option>
-                <option
+export default LicenseList;
