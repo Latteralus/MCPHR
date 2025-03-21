@@ -1,20 +1,20 @@
-import React, { useState, ReactNode } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { AuthContext } from '../../contexts/AuthContext';
 import './Layout.css';
 
 interface MainLayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const { authState, logout } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
   const handleLogout = () => {
@@ -22,68 +22,122 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const user = authState.user;
-  const employee = authState.employee;
+  // Navigation items with icons
+  const navItems = [
+    { path: '/dashboard', name: 'Dashboard', icon: '📊' },
+    { path: '/employees', name: 'Employees', icon: '👥' },
+    { path: '/licenses', name: 'Licenses', icon: '🔐' },
+    { path: '/attendance', name: 'Attendance', icon: '📅' },
+    { path: '/documents', name: 'Documents', icon: '📄' }
+  ];
+
+  // Admin only navigation items
+  const adminNavItems = [
+    { path: '/settings', name: 'Settings', icon: '⚙️' }
+  ];
 
   return (
-    <div className="container">
+    <div className="layout-container">
       {/* Sidebar */}
-      <aside className={`sidebar ${mobileMenuOpen ? 'active' : ''}`}>
-        <div className="sidebar-logo">
-          <img src="/logo-placeholder.png" alt="Mountain Care Logo" />
-          <span>Mountain Care</span>
-        </div>
-        <nav className="sidebar-menu">
-          <Link to="/" className={`menu-item ${location.pathname === '/' ? 'active' : ''}`}>
-            <i className="fas fa-home"></i>
-            Dashboard
-          </Link>
-          <Link to="/employees" className={`menu-item ${location.pathname.startsWith('/employees') ? 'active' : ''}`}>
-            <i className="fas fa-users"></i>
-            Employees
-          </Link>
-          <Link to="/attendance" className={`menu-item ${location.pathname.startsWith('/attendance') ? 'active' : ''}`}>
-            <i className="fas fa-calendar-alt"></i>
-            Attendance
-          </Link>
-          <Link to="/licenses" className={`menu-item ${location.pathname.startsWith('/licenses') ? 'active' : ''}`}>
-            <i className="fas fa-id-card"></i>
-            Licenses
-          </Link>
-          <Link to="/documents" className={`menu-item ${location.pathname.startsWith('/documents') ? 'active' : ''}`}>
-            <i className="fas fa-file-alt"></i>
-            Documents
-          </Link>
-          <Link to="/settings" className={`menu-item ${location.pathname.startsWith('/settings') ? 'active' : ''}`}>
-            <i className="fas fa-cog"></i>
-            Settings
-          </Link>
-        </nav>
-        <div className="sidebar-footer">
-          <div className="user-avatar">
-            {user?.firstName?.[0]}{user?.lastName?.[0]}
-          </div>
-          <div className="user-info">
-            <div className="user-name">{user?.firstName} {user?.lastName}</div>
-            <div className="user-role">{employee?.position || user?.role}</div>
-          </div>
-          <button className="logout-button" onClick={handleLogout}>
-            <i className="fas fa-sign-out-alt"></i>
+      <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          <h1 className="app-title">
+            {isSidebarCollapsed ? 'MC' : 'Mountain Care HR'}
+          </h1>
+          <button className="sidebar-toggle" onClick={toggleSidebar}>
+            {isSidebarCollapsed ? '►' : '◄'}
           </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          <ul>
+            {navItems.map((item) => (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={location.pathname === item.path ? 'active' : ''}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {!isSidebarCollapsed && <span>{item.name}</span>}
+                </Link>
+              </li>
+            ))}
+
+            {/* Show admin items only for admin/manager roles */}
+            {user && (user.role === 'admin' || user.role === 'manager') && (
+              <>
+                <li className="nav-divider">
+                  {!isSidebarCollapsed && <span>Administration</span>}
+                </li>
+                
+                {adminNavItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={location.pathname === item.path ? 'active' : ''}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      {!isSidebarCollapsed && <span>{item.name}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </>
+            )}
+          </ul>
+        </nav>
+
+        <div className="sidebar-footer">
+          {!isSidebarCollapsed && (
+            <button className="logout-button" onClick={handleLogout}>
+              <span className="nav-icon">🚪</span>
+              <span>Logout</span>
+            </button>
+          )}
+          {isSidebarCollapsed && (
+            <button className="logout-button-icon" onClick={handleLogout}>
+              🚪
+            </button>
+          )}
         </div>
       </aside>
 
-      {/* Mobile menu toggle */}
-      <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
-        <i className={`fas ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
-      </button>
-
-      {/* Main Content */}
+      {/* Main content area */}
       <main className="main-content">
-        {children}
+        {/* Header */}
+        <header className="header">
+          <div className="header-title">
+            <h2>{getCurrentPageTitle(location.pathname)}</h2>
+          </div>
+          <div className="header-user">
+            {user && (
+              <>
+                <span className="user-greeting">
+                  Hello, {user.firstName} {user.lastName}
+                </span>
+                <span className="user-role">{capitalizeRole(user.role)}</span>
+              </>
+            )}
+          </div>
+        </header>
+
+        {/* Page content */}
+        <div className="content">
+          {children}
+        </div>
       </main>
     </div>
   );
+};
+
+// Helper function to get the current page title
+const getCurrentPageTitle = (pathname: string): string => {
+  const path = pathname.split('/')[1];
+  return path ? path.charAt(0).toUpperCase() + path.slice(1) : 'Dashboard';
+};
+
+// Helper function to capitalize role
+const capitalizeRole = (role: string): string => {
+  return role.charAt(0).toUpperCase() + role.slice(1);
 };
 
 export default MainLayout;

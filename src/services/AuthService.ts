@@ -1,225 +1,112 @@
+import { DatabaseService } from './DatabaseService';
+import { User } from '../types';
 import jwt from 'jsonwebtoken';
-import UserService from './UserService';
-import EmployeeService from './EmployeeService';
-import { User, Employee, LoginCredentials, ApiResponse } from '../types';
 
-// Secret key for JWT signing - in a real app, this would be in environment variables
-const JWT_SECRET = 'mountain-care-hr-secret-key';
-const TOKEN_EXPIRY = '8h';
+// JWT secret key - in a real app, this would be in a secure environment variable
+const JWT_SECRET = 'mcphr-local-jwt-secret';
+const TOKEN_EXPIRY = '24h';
 
-class AuthService {
-  private userService: UserService;
-  private employeeService: EmployeeService;
+export interface AuthResult {
+  token: string;
+  user: User;
+}
 
+export class AuthService {
+  private dbService: DatabaseService;
+  
   constructor() {
-    this.userService = new UserService();
-    this.employeeService = new EmployeeService();
+    this.dbService = new DatabaseService();
   }
-
+  
   /**
-   * Login a user with email and password
-   * @param credentials User credentials
-   * @returns ApiResponse with token, user, and employee data if successful
+   * Authenticates a user by email and password
    */
-  public async login(credentials: LoginCredentials): Promise<ApiResponse<{
-    token: string;
-    user: User;
-    employee: Employee | null;
-  }>> {
+  async login(email: string, password: string): Promise<AuthResult | null> {
     try {
-      const { email, password } = credentials;
+      // Open database connection
+      await this.dbService.openDatabase();
       
-      // Find user by email
-      const user = await this.userService.getUserByEmail(email);
+      // In a real app, passwords would be hashed
+      const query = `
+        SELECT id, email, first_name, last_name, role
+        FROM users
+        WHERE email = ? AND password = ?
+        LIMIT 1
+      `;
       
-      if (!user) {
-        return {
-          success: false,
-          error: 'Invalid email or password'
+      const results = this.dbService.executeQuery(query, [email, password]);
+      
+      if (results.length > 0) {
+        const user: User = {
+          id: results[0].id,
+          email: results[0].email,
+          firstName: results[0].first_name,
+          lastName: results[0].last_name,
+          role: results[0].role,
         };
+        
+        // Generate JWT token
+        const token = this.generateToken(user);
+        
+        return { token, user };
       }
       
-      // Check password (in a real app, we would use bcrypt or similar)
-      if (user.password !== password) {
-        return {
-          success: false,
-          error: 'Invalid email or password'
-        };
-      }
-      
-      // Get associated employee data if it exists
-      const employee = await this.employeeService.getEmployeeByUserId(user.id);
-      
-      // Generate JWT token
-      const token = this.generateToken(user);
-      
-      return {
-        success: true,
-        data: {
-          token,
-          user,
-          employee
-        },
-        message: 'Login successful'
-      };
+      return null;
     } catch (error) {
       console.error('Login error:', error);
-      return {
-        success: false,
-        error: 'An unexpected error occurred during login'
-      };
+      throw error;
     }
   }
-
+  
   /**
-   * Verify a JWT token and get the associated user
-   * @param token JWT token
-   * @returns ApiResponse with user and employee data if valid
+   * Validates a JWT token and returns the associated user
    */
-  public async verifyToken(token: string): Promise<ApiResponse<{
-    user: User;
-    employee: Employee | null;
-  }>> {
+  async validateToken(token: string): Promise<User | null> {
     try {
-      // Verify the token
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+      const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
       
       if (!decoded || !decoded.userId) {
+        return null;
+      }
+      
+      // Get user from database
+      await this.dbService.openDatabase();
+      const query = `
+        SELECT id, email, first_name, last_name, role
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `;
+      
+      const results = this.dbService.executeQuery(query, [decoded.userId]);
+      
+      if (results.length > 0) {
         return {
-          success: false,
-          error: 'Invalid token'
+          id: results[0].id,
+          email: results[0].email,
+          firstName: results[0].first_name,
+          lastName: results[0].last_name,
+          role: results[0].role,
         };
       }
       
-      // Get user data
-      const user = await this.userService.getUserById(decoded.userId);
-      
-      if (!user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
-      }
-      
-      // Get associated employee data if it exists
-      const employee = await this.employeeService.getEmployeeByUserId(user.id);
-      
-      return {
-        success: true,
-        data: {
-          user,
-          employee
-        }
-      };
+      return null;
     } catch (error) {
-      console.error('Token verification error:', error);
-      return {
-        success: false,
-        error: 'Invalid or expired token'
-      };
+      console.error('Token validation error:', error);
+      return null;
     }
   }
-
+  
   /**
-   * Register a new user
-   * @param userData User data for registration
-   * @returns ApiResponse with token, user data if successful
-   */
-  public async register(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<{
-    token: string;
-    user: User;
-  }>> {
-    try {
-      // Check if email already exists
-      const existingUser = await this.userService.getUserByEmail(userData.email);
-      
-      if (existingUser) {
-        return {
-          success: false,
-          error: 'Email already in use'
-        };
-      }
-      
-      // Create new user
-      const user = await this.userService.createUser(userData);
-      
-      // Generate JWT token
-      const token = this.generateToken(user);
-      
-      return {
-        success: true,
-        data: {
-          token,
-          user
-        },
-        message: 'Registration successful'
-      };
-    } catch (error) {
-      console.error('Registration error:', error);
-      return {
-        success: false,
-        error: 'An unexpected error occurred during registration'
-      };
-    }
-  }
-
-  /**
-   * Change a user's password
-   * @param userId User ID
-   * @param currentPassword Current password for verification
-   * @param newPassword New password
-   * @returns ApiResponse indicating success or failure
-   */
-  public async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<ApiResponse<null>> {
-    try {
-      // Get user
-      const user = await this.userService.getUserById(userId);
-      
-      if (!user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
-      }
-      
-      // Verify current password (in a real app, we would use bcrypt or similar)
-      if (user.password !== currentPassword) {
-        return {
-          success: false,
-          error: 'Current password is incorrect'
-        };
-      }
-      
-      // Update password
-      await this.userService.updateUser(userId, { password: newPassword });
-      
-      return {
-        success: true,
-        message: 'Password changed successfully'
-      };
-    } catch (error) {
-      console.error('Password change error:', error);
-      return {
-        success: false,
-        error: 'An unexpected error occurred while changing password'
-      };
-    }
-  }
-
-  /**
-   * Generate a JWT token for a user
-   * @param user User object
-   * @returns JWT token
+   * Generates a JWT token for a user
    */
   private generateToken(user: User): string {
     const payload = {
       userId: user.id,
       email: user.email,
-      role: user.role
+      role: user.role,
     };
     
     return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
   }
 }
-
-export default AuthService;

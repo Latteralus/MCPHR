@@ -1,58 +1,146 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { DatabaseProvider } from './contexts/DatabaseContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { useAuth } from './contexts/AuthContext';
+import { DatabaseProvider } from './contexts/DatabaseContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/Login/Login';
+import Dashboard from './pages/Dashboard/Dashboard';
 import './styles/global.css';
 
-// Import pages (to be created later)
-// Placeholder imports for now
-const Login = () => <div>Login Page</div>;
-const Dashboard = () => <div>Dashboard</div>;
-const Employees = () => <div>Employees Page</div>;
-const EmployeeDetail = () => <div>Employee Detail Page</div>;
-const Licenses = () => <div>Licenses Page</div>;
-const LicenseDetail = () => <div>License Detail Page</div>;
-const NotFound = () => <div>404 Page Not Found</div>;
+// Import pages
+import EmployeeList from './pages/Employees/EmployeeList';
+import LicenseList from './pages/Licenses/LicenseList';
 
-// Protected route component
-const ProtectedRoute: React.FC<{ element: React.ReactNode }> = ({ element }) => {
-  const { authState } = useAuth();
-  
-  if (authState.loading) {
-    return <div>Loading...</div>;
-  }
-  
-  return authState.isAuthenticated ? (
-    <>{element}</>
-  ) : (
-    <Navigate to="/login" replace />
-  );
-};
+// Temporary placeholder components for routes we haven't built yet
+const Attendance = () => <div>Attendance Page</div>;
+const Documents = () => <div>Documents Page</div>;
+const Settings = () => <div>Settings Page</div>;
 
-const AppRoutes: React.FC = () => {
+const App: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<ProtectedRoute element={<Dashboard />} />} />
-      <Route path="/employees" element={<ProtectedRoute element={<Employees />} />} />
-      <Route path="/employees/:id" element={<ProtectedRoute element={<EmployeeDetail />} />} />
-      <Route path="/licenses" element={<ProtectedRoute element={<Licenses />} />} />
-      <Route path="/licenses/:id" element={<ProtectedRoute element={<LicenseDetail />} />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Router>
+      <DatabaseProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/employees"
+              element={
+                <ProtectedRoute>
+                  <EmployeeList />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/licenses"
+              element={
+                <ProtectedRoute>
+                  <LicenseList />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/attendance"
+              element={
+                <ProtectedRoute>
+                  <Attendance />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/documents"
+              element={
+                <ProtectedRoute>
+                  <Documents />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requiredRoles={['admin', 'manager']}>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Redirect to dashboard if authenticated, otherwise to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </AuthProvider>
+      </DatabaseProvider>
+    </Router>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <DatabaseProvider>
-      <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
-      </AuthProvider>
-    </DatabaseProvider>
+    <Router>
+      <DatabaseProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/employees"
+              element={
+                <ProtectedRoute>
+                  <Employees />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/licenses"
+              element={
+                <ProtectedRoute>
+                  <Licenses />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requiredRoles={['admin', 'manager']}>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Redirect to dashboard if authenticated, otherwise to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </AuthProvider>
+      </DatabaseProvider>
+    </Router>
   );
 };
 

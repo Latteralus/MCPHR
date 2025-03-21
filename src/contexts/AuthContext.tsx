@@ -1,233 +1,110 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AuthService from '../services/AuthService';
-import { User, Employee, AuthState, LoginCredentials, ApiResponse } from '../types';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { AuthService } from '../services/AuthService';
+import { User } from '../types';
 
-interface AuthContextProps {
-  authState: AuthState;
-  login: (credentials: LoginCredentials) => Promise<ApiResponse<any>>;
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ApiResponse<any>>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<ApiResponse<null>>;
+  checkAuthStatus: () => Promise<boolean>;
 }
 
-const defaultAuthState: AuthState = {
-  isAuthenticated: false,
+const defaultAuthContext: AuthContextType = {
   user: null,
-  employee: null,
-  token: null,
-  loading: true,
-  error: null
+  isAuthenticated: false,
+  isLoading: true,
+  login: async () => false,
+  logout: () => {},
+  checkAuthStatus: async () => false,
 };
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>(defaultAuthState);
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const authService = new AuthService();
-
-  // On mount, check if there's a token in localStorage and try to authenticate with it
+  
+  const checkAuthStatus = async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        return false;
+      }
+      
+      const userData = await authService.validateToken(token);
+      if (userData) {
+        setUser(userData);
+        setIsAuthenticated(true);
+        return true;
+      } else {
+        // Token is invalid or expired
+        localStorage.removeItem('authToken');
+        return false;
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('authToken');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const result = await authService.login(email, password);
+      
+      if (result && result.token && result.user) {
+        localStorage.setItem('authToken', result.token);
+        setUser(result.user);
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const logout = () => {
+    localStorage.removeItem('authToken');
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+  
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('mcphr_token');
-      if (token) {
-        try {
-          const response = await authService.verifyToken(token);
-          if (response.success && response.data) {
-            setAuthState({
-              isAuthenticated: true,
-              user: response.data.user,
-              employee: response.data.employee,
-              token,
-              loading: false,
-              error: null
-            });
-          } else {
-            // Token invalid or expired
-            localStorage.removeItem('mcphr_token');
-            setAuthState({
-              ...defaultAuthState,
-              loading: false,
-              error: response.error || 'Session expired, please login again'
-            });
-          }
-        } catch (error) {
-          console.error('Auth initialization error:', error);
-          localStorage.removeItem('mcphr_token');
-          setAuthState({
-            ...defaultAuthState,
-            loading: false,
-            error: 'Authentication error'
-          });
-        }
-      } else {
-        setAuthState({
-          ...defaultAuthState,
-          loading: false
-        });
-      }
-    };
-
-    initAuth();
-  }, []);
-
-  const login = async (credentials: LoginCredentials): Promise<ApiResponse<any>> => {
-    setAuthState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.login(credentials);
-      
-      if (response.success && response.data) {
-        // Store token in localStorage if rememberMe is true
-        if (credentials.rememberMe) {
-          localStorage.setItem('mcphr_token', response.data.token);
-        } else {
-          // For session-only storage, we could use sessionStorage instead
-          // But for simplicity, we'll still use localStorage
-          localStorage.setItem('mcphr_token', response.data.token);
-        }
-        
-        setAuthState({
-          isAuthenticated: true,
-          user: response.data.user,
-          employee: response.data.employee,
-          token: response.data.token,
-          loading: false,
-          error: null
-        });
-      } else {
-        setAuthState(prev => ({
-          ...prev,
-          loading: false,
-          error: response.error || 'Login failed'
-        }));
-      }
-      
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      setAuthState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage
-      }));
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  };
-
-  const logout = (): void => {
-    localStorage.removeItem('mcphr_token');
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-      employee: null,
-      token: null,
-      loading: false,
-      error: null
+    // Check authentication status when the provider mounts
+    checkAuthStatus().finally(() => {
+      setIsLoading(false);
     });
-  };
-
-  const register = async (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<any>> => {
-    setAuthState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.register(userData);
-      
-      if (response.success && response.data) {
-        // Store token in localStorage
-        localStorage.setItem('mcphr_token', response.data.token);
-        
-        setAuthState({
-          isAuthenticated: true,
-          user: response.data.user,
-          employee: null, // New users don't have an employee record yet
-          token: response.data.token,
-          loading: false,
-          error: null
-        });
-      } else {
-        setAuthState(prev => ({
-          ...prev,
-          loading: false,
-          error: response.error || 'Registration failed'
-        }));
-      }
-      
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-      setAuthState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage
-      }));
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  };
-
-  const changePassword = async (currentPassword: string, newPassword: string): Promise<ApiResponse<null>> => {
-    if (!authState.user) {
-      return {
-        success: false,
-        error: 'Not authenticated'
-      };
-    }
-    
-    try {
-      const response = await authService.changePassword(
-        authState.user.id,
-        currentPassword,
-        newPassword
-      );
-      
-      if (!response.success) {
-        setAuthState(prev => ({
-          ...prev,
-          error: response.error || 'Password change failed'
-        }));
-      }
-      
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Password change failed';
-      setAuthState(prev => ({
-        ...prev,
-        error: errorMessage
-      }));
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  };
-
-  const contextValue: AuthContextProps = {
-    authState,
+  }, []);
+  
+  const contextValue: AuthContextType = {
+    user,
+    isAuthenticated,
+    isLoading,
     login,
     logout,
-    register,
-    changePassword
+    checkAuthStatus,
   };
-
+  
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = (): AuthContextProps => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

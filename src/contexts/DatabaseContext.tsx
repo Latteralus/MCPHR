@@ -1,90 +1,77 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import DatabaseService from '../services/DatabaseService';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { DatabaseService } from '../services/DatabaseService';
+import { SeedService } from '../services/SeedService';
 
-interface DatabaseContextProps {
-  dbReady: boolean;
-  initDatabase: () => Promise<void>;
-  exportDatabase: () => Promise<Uint8Array>;
-  importDatabase: (data: Uint8Array) => Promise<void>;
+interface DatabaseContextType {
+  isInitialized: boolean;
+  isLoading: boolean;
   error: string | null;
+  initialize: () => Promise<void>;
 }
 
-const DatabaseContext = createContext<DatabaseContextProps | undefined>(undefined);
+const defaultDatabaseContext: DatabaseContextType = {
+  isInitialized: false,
+  isLoading: false,
+  error: null,
+  initialize: async () => {},
+};
 
-export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [dbReady, setDbReady] = useState<boolean>(false);
+export const DatabaseContext = createContext<DatabaseContextType>(defaultDatabaseContext);
+
+interface DatabaseProviderProps {
+  children: ReactNode;
+}
+
+export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) => {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dbService = DatabaseService.getInstance();
-
-  useEffect(() => {
-    initDatabase();
+  
+  const dbService = new DatabaseService();
+  const seedService = new SeedService();
+  
+  const initialize = async (): Promise<void> => {
+    if (isInitialized) return;
     
-    // Cleanup function to close the database connection when the component is unmounted
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Initialize database
+      await dbService.openDatabase();
+      
+      // Seed database with test data
+      await seedService.seedDatabase();
+      
+      setIsInitialized(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to initialize database');
+      console.error('Database initialization error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    // Initialize database when the provider mounts
+    initialize();
+    
+    // Close database connection when the provider unmounts
     return () => {
-      dbService.close();
+      dbService.closeDatabase();
     };
   }, []);
-
-  const initDatabase = async (): Promise<void> => {
-    try {
-      setError(null);
-      await dbService.init();
-      setDbReady(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize database';
-      console.error('Database initialization error:', err);
-      setError(errorMessage);
-      setDbReady(false);
-    }
+  
+  const contextValue: DatabaseContextType = {
+    isInitialized,
+    isLoading,
+    error,
+    initialize,
   };
-
-  const exportDatabase = async (): Promise<Uint8Array> => {
-    if (!dbReady) {
-      throw new Error('Database not initialized');
-    }
-    
-    try {
-      return dbService.exportDatabase();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to export database';
-      console.error('Database export error:', err);
-      setError(errorMessage);
-      throw err;
-    }
-  };
-
-  const importDatabase = async (data: Uint8Array): Promise<void> => {
-    try {
-      setError(null);
-      await dbService.importDatabase(data);
-      setDbReady(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to import database';
-      console.error('Database import error:', err);
-      setError(errorMessage);
-      throw err;
-    }
-  };
-
-  const contextValue: DatabaseContextProps = {
-    dbReady,
-    initDatabase,
-    exportDatabase,
-    importDatabase,
-    error
-  };
-
+  
   return (
     <DatabaseContext.Provider value={contextValue}>
       {children}
     </DatabaseContext.Provider>
   );
-};
-
-export const useDatabase = (): DatabaseContextProps => {
-  const context = useContext(DatabaseContext);
-  if (!context) {
-    throw new Error('useDatabase must be used within a DatabaseProvider');
-  }
-  return context;
 };
