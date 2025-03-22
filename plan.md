@@ -1,513 +1,275 @@
-# Mountain Care HR App - Electron-First Plan
-
-## Technology Stack
-
-- **Frontend**: React.js
-- **Backend**: Node.js with Express
-- **Database**: PostgreSQL
-- **ORM**: Sequelize
-- **Desktop Framework**: Electron
-- **Authentication**: JWT (JSON Web Tokens)
-- **UI Framework**: Custom styling with CSS variables
-
-## Architecture Overview
-
-The application will follow an Electron-first architecture that works both as a desktop application and a web application with minimal code duplication.
-
-### Key Architecture Components:
-
-1. **Shared React Frontend**: Core UI components used in both web and desktop
-2. **Dual-mode Backend**:
-   - API mode for web deployment
-   - Direct integration for Electron
-3. **Database Strategy**:
-   - Desktop: Local SQLite with PostgreSQL schema compatibility
-   - Web: Remote PostgreSQL server
-4. **Synchronization Layer**: For offline-to-online data sync
-
-## Project Structure
-
-```
-mountain-care-hr/
-├── package.json             # Root package with shared dependencies
-├── client/                  # React frontend
-│   ├── public/
-│   │   ├── index.html
-│   │   └── assets/
-│   ├── src/
-│   │   ├── index.js         # Entry point for web
-│   │   ├── electron-index.js # Entry point for Electron
-│   │   ├── App.js
-│   │   ├── components/      # Shared components
-│   │   ├── contexts/        # Shared contexts
-│   │   ├── hooks/           # Shared hooks
-│   │   ├── pages/           # Shared pages
-│   │   ├── services/
-│   │   │   ├── api/         # Web API services
-│   │   │   └── electron/    # Electron IPC services
-│   │   ├── utils/
-│   │   └── styles/
-├── server/                  # Express backend
-│   ├── api/                 # API routes and controllers
-│   ├── db/                  # Database models and migrations
-│   │   ├── models/          # Sequelize models
-│   │   ├── migrations/      # Database migrations
-│   │   └── seeders/         # Seed data
-│   ├── services/            # Business logic services
-│   └── utils/               # Utility functions
-├── electron/                # Electron-specific code
-│   ├── main.js              # Main process
-│   ├── preload.js           # Preload script (secure bridge)
-│   ├── db/                  # Electron database handler
-│   │   ├── sqlite-handler.js # SQLite implementation
-│   │   └── sync-manager.js  # Sync with remote PostgreSQL
-│   ├── services/            # Electron-specific services
-│   │   ├── auth-service.js  # Local authentication
-│   │   ├── file-service.js  # File handling
-│   │   └── ipc-handlers.js  # IPC communication
-│   └── utils/
-├── shared/                  # Code shared between all layers
-│   ├── constants.js
-│   ├── validation.js
-│   └── types.js
-└── configs/                 # Configuration files
-    ├── webpack.config.js    # Web build config
-    ├── electron-forge.config.js # Electron build config
-    ├── sequelize.config.js  # Database config
-    └── jest.config.js       # Testing config
-```
-
-## Database Design
-
-### Core Database Tables
-
-1. **users**
-   ```sql
-   CREATE TABLE users (
-     id SERIAL PRIMARY KEY,
-     email VARCHAR(255) UNIQUE NOT NULL,
-     password VARCHAR(255) NOT NULL,
-     first_name VARCHAR(100) NOT NULL,
-     last_name VARCHAR(100) NOT NULL,
-     role VARCHAR(50) NOT NULL,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     sync_status VARCHAR(50) DEFAULT 'synced'
-   );
-   ```
-
-2. **employees**
-   ```sql
-   CREATE TABLE employees (
-     id SERIAL PRIMARY KEY,
-     user_id INTEGER REFERENCES users(id),
-     employee_id VARCHAR(50) UNIQUE NOT NULL,
-     department VARCHAR(100) NOT NULL,
-     position VARCHAR(100) NOT NULL,
-     hire_date DATE NOT NULL,
-     manager_id INTEGER REFERENCES employees(id),
-     employment_status VARCHAR(50) NOT NULL,
-     emergency_contact_name VARCHAR(100),
-     emergency_contact_phone VARCHAR(20),
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     sync_status VARCHAR(50) DEFAULT 'synced'
-   );
-   ```
-
-3. **licenses**
-   ```sql
-   CREATE TABLE licenses (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     license_type VARCHAR(100) NOT NULL,
-     license_number VARCHAR(100) NOT NULL,
-     issue_date DATE NOT NULL,
-     expiration_date DATE NOT NULL,
-     issuing_authority VARCHAR(100) NOT NULL,
-     status VARCHAR(50) NOT NULL,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     sync_status VARCHAR(50) DEFAULT 'synced'
-   );
-   ```
-
-4. **attendance**
-   ```sql
-   CREATE TABLE attendance (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     date DATE NOT NULL,
-     clock_in TIMESTAMP,
-     clock_out TIMESTAMP,
-     status VARCHAR(50) NOT NULL,
-     notes TEXT,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     sync_status VARCHAR(50) DEFAULT 'synced'
-   );
-   ```
-
-5. **documents**
-   ```sql
-   CREATE TABLE documents (
-     id SERIAL PRIMARY KEY,
-     employee_id INTEGER REFERENCES employees(id),
-     document_type VARCHAR(100) NOT NULL,
-     file_name VARCHAR(255) NOT NULL,
-     file_path VARCHAR(255) NOT NULL,
-     file_hash VARCHAR(255) NOT NULL,
-     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     uploaded_by INTEGER REFERENCES users(id),
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     sync_status VARCHAR(50) DEFAULT 'synced'
-   );
-   ```
-
-> Note: All tables include a `sync_status` field to manage synchronization between local and remote databases.
-
-## Electron Implementation Details
-
-### Main Process (main.js)
-
-The main process handles:
-- Application lifecycle (startup, shutdown)
-- Window management
-- Local database initialization
-- IPC (Inter-Process Communication) setup
-- System tray integration
-- Auto-updates
-
-```javascript
-// Example main.js structure
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-const { setupDatabase } = require('./db/sqlite-handler');
-const { registerIpcHandlers } = require('./services/ipc-handlers');
-const { checkForUpdates } = require('./services/updater');
-
-let mainWindow;
-
-async function createWindow() {
-  // Initialize the database
-  await setupDatabase();
-  
-  // Create the browser window
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  // Load the app
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../client/build/index.html'));
-  }
-
-  // Register IPC handlers
-  registerIpcHandlers(mainWindow);
-  
-  // Check for updates
-  checkForUpdates();
-}
-
-app.whenReady().then(createWindow);
-
-// App lifecycle events
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
-```
-
-### Preload Script (preload.js)
-
-The preload script creates a secure bridge between the renderer process (React) and the main process:
-
-```javascript
-// Example preload.js structure
-const { contextBridge, ipcRenderer } = require('electron');
-
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('electronAPI', {
-  // Authentication
-  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
-  logout: () => ipcRenderer.invoke('auth:logout'),
-  
-  // Database operations
-  getEmployee: (id) => ipcRenderer.invoke('db:getEmployee', id),
-  getEmployees: () => ipcRenderer.invoke('db:getEmployees'),
-  createEmployee: (data) => ipcRenderer.invoke('db:createEmployee', data),
-  updateEmployee: (id, data) => ipcRenderer.invoke('db:updateEmployee', id, data),
-  
-  // File operations
-  saveDocument: (employeeId, file) => ipcRenderer.invoke('file:saveDocument', employeeId, file),
-  getDocuments: (employeeId) => ipcRenderer.invoke('file:getDocuments', employeeId),
-  
-  // Synchronization
-  syncData: () => ipcRenderer.invoke('sync:syncData'),
-  getSyncStatus: () => ipcRenderer.invoke('sync:getStatus'),
-  
-  // App information
-  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
-  
-  // Listen to events
-  onSyncUpdate: (callback) => {
-    const listener = (_, status) => callback(status);
-    ipcRenderer.on('sync:status', listener);
-    return () => ipcRenderer.removeListener('sync:status', listener);
-  }
-});
-```
-
-### React Service Adapters
-
-Create service adapters to abstract the data access layer, allowing the React code to work in both web and Electron environments:
-
-```javascript
-// Example service adapter for employees
-export const employeeService = {
-  async getAll() {
-    if (window.electronAPI) {
-      // Electron environment
-      return window.electronAPI.getEmployees();
-    } else {
-      // Web environment
-      const response = await fetch('/api/employees');
-      return response.json();
-    }
-  },
-  
-  async getById(id) {
-    if (window.electronAPI) {
-      return window.electronAPI.getEmployee(id);
-    } else {
-      const response = await fetch(`/api/employees/${id}`);
-      return response.json();
-    }
-  },
-  
-  async create(data) {
-    if (window.electronAPI) {
-      return window.electronAPI.createEmployee(data);
-    } else {
-      const response = await fetch('/api/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      return response.json();
-    }
-  },
-  
-  // Additional methods...
-};
-```
-
-## Style Guide
-
-### Color Palette
-
-- **Primary Color**: Teal (#00796B)
-  - Dark shade: #004D40
-  - Light shade: #4DB6AC
-- **Secondary Color**: Soft Blue (#4FC3F7)
-- **Accent Color**: Amber (#FFC107)
-- **Alert Colors**:
-  - Success: #4CAF50
-  - Warning: #FF9800
-  - Danger: #F44336
-- **Neutral Colors**:
-  - White: #FFFFFF
-  - Gray-100: #F5F5F5
-  - Gray-200: #EEEEEE
-  - Gray-300: #E0E0E0
-  - Gray-400: #BDBDBD
-  - Gray-500: #9E9E9E
-  - Gray-600: #757575
-  - Gray-700: #616161
-  - Gray-800: #424242
-  - Gray-900: #212121
-
-### Typography
-
-- **Heading Font**: Inter (sans-serif)
-  - h1: 28px (1.75rem), font-weight: 700
-  - h2: 24px (1.5rem), font-weight: 700
-  - h3: 20px (1.25rem), font-weight: 600
-  - h4: 18px (1.125rem), font-weight: 600
-  - h5: 16px (1rem), font-weight: 600
-  - h6: 14px (0.875rem), font-weight: 600
-
-- **Body Font**: Nunito (sans-serif)
-  - Base size: 16px (1rem)
-  - Small text: 14px (0.875rem)
-  - Extra small text: 12px (0.75rem)
-  - Line height: 1.5
-
-### UI Components
-
-1. **Windows/macOS Native Elements**
-   - Window controls (minimize, maximize, close)
-   - Native menus
-   - Title bar consistent with OS
-   - System notifications integration
-
-2. **Cards**
-   - White background (#FFFFFF)
-   - Border radius: 8px
-   - Box shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)
-   - Padding: 24px (1.5rem)
-
-3. **Buttons**
-   - Border radius: 8px
-   - Font weight: 600
-   - Padding: 8px 16px (0.5rem 1rem)
-   - Primary Button: Background #00796B, Text White
-   - Secondary Button: Background White, Border #E0E0E0, Text #616161
-
-4. **Forms**
-   - Input height: 40px
-   - Border radius: 8px
-   - Border color: #E0E0E0
-   - Focus border color: #00796B
-   - Label color: #616161
-   - Input padding: 8px 16px
-
-5. **Tables**
-   - Header background: #F5F5F5
-   - Border color: #E0E0E0
-   - Zebra striping: Even rows #FFFFFF, Odd rows #F9F9F9
-   - Row hover: #F5F5F5
-
-## Electron-Specific UI Elements
-
-1. **Title Bar**
-   - Custom title bar with app logo and name
-   - Window controls matching OS style
-   - Connection status indicator
-
-2. **System Tray**
-   - App icon in system tray
-   - Quick actions menu
-   - Notification indicators
-
-3. **Offline Mode Indicators**
-   - Sync status badge
-   - Last synced timestamp
-   - Pending changes counter
-
-4. **Desktop Notifications**
-   - License expiration alerts
-   - Sync completion notifications
-   - New task assignments
-
-## Implementation Plan (7 Weeks)
-
-### Phase 1: Project Setup and Core Architecture (2 weeks)
-
-1. **Week 1: Project Initialization**
-   - Set up React project structure
-   - Set up Electron configuration
-   - Configure PostgreSQL and SQLite databases
-   - Create shared data models
-   - Set up build scripts
-
-2. **Week 2: Core Services**
-   - Implement authentication services
-   - Create data access layer
-   - Implement IPC communication
-   - Set up synchronization framework
-   - Create service adapters
-
-### Phase 2: Authentication and Database (1 week)
-
-1. **Authentication System**
-   - Implement login/logout functionality
-   - Create user session management
-   - Set up JWT for web authentication
-   - Implement secure storage for Electron
-
-2. **Database Setup**
-   - Create database migrations
-   - Set up SQLite for desktop
-   - Configure PostgreSQL for web
-   - Implement initial seed data
-
-### Phase 3: Dashboard and UI Implementation (2 weeks)
-
-1. **Week 4: UI Framework**
-   - Implement shared component library
-   - Create layout components (sidebar, header)
-   - Implement responsive design
-   - Create form components
-
-2. **Week 5: Dashboard Implementation**
-   - Create dashboard page
-   - Implement stat cards
-   - Create license expiration component
-   - Implement activity feed
-   - Add quick access module cards
-
-### Phase 4: Electron-Specific Features (1 week)
-
-1. **Desktop Integration**
-   - Implement system tray functionality
-   - Create native menu options
-   - Set up auto-updates
-   - Add desktop notifications
-   - Implement offline mode
-
-### Phase 5: Testing and Refinement (1 week)
-
-1. **Testing**
-   - Unit tests for core services
-   - Integration tests for data flow
-   - UI testing for both web and desktop
-   - Offline synchronization testing
-
-2. **Refinement**
-   - Performance optimization
-   - Bug fixes
-   - UX improvements
-   - Documentation
-
-## Deployment Strategy
-
-### Desktop Application
-- Use Electron Forge for packaging
-- Create installers for Windows, macOS, Linux
-- Implement auto-update system
-- Code signing for macOS and Windows
-
-### Web Application
-- Deploy Express backend to a Node.js hosting service
-- Set up PostgreSQL database on a managed service
-- Configure HTTPS and security headers
-- Set up CI/CD pipeline
-
-## Future Expansion
-
-After the MVP is completed, additional modules can be added in this order:
-
-1. Employee Management
-2. Attendance Tracking
-3. Leave Management
-4. License and Compliance Tracking
-5. Document Management
-6. Onboarding/Offboarding
-7. Reporting and Analytics
-
-Each module will follow the established architecture and styling to maintain consistency across both web and desktop platforms.
+Mountain Care HR Dashboard Project Outline
+This document describes the end-to-end plan for building the Mountain Care HR Dashboard website, designed for a pharmacy industry company. The project includes a secure login page and an HR dashboard with key features such as employee onboarding/offboarding, document compliance, and automation. The backend is built as a monolith using NestJS with feature modules, and the frontend is a Next.js application making simple HTTP/REST calls to the backend. All data is stored in a shared PostgreSQL database, and file storage is handled locally (or via a self-hosted solution like MinIO) through Docker.
+
+1. Project Objectives
+Rapid MVP Delivery: Quickly build a minimum viable product to demo the key features.
+
+Modularity & Extensibility: Develop a monolithic backend with feature modules for easy addition of new features.
+
+Client Separation: Create a Next.js frontend with a modular, microservice-like structure (within a single codebase) that communicates via HTTP with the backend.
+
+Robust Data Management: Use a shared PostgreSQL database for all features.
+
+Scalable File Storage: Handle document uploads locally (or with a self-hosted S3-compatible solution) using Docker volumes.
+
+Future Scalability: Prepare the architecture to transition into separate microservices if needed in the future.
+
+2. Technology Stack
+Frontend: Next.js
+
+For server-side rendering, fast development, and Vercel deployment.
+
+Backend: NestJS (Monolith with Feature Modules)
+
+Modular structure (Auth, HR Dashboard, Onboarding, Offboarding, Document/Compliance).
+
+Database: PostgreSQL
+
+Single, shared database with a defined schema for Users, Employees, Documents, and Tasks.
+
+File Storage:
+
+Option A: Local Docker volume for file storage (suitable for MVP).
+
+Option B: Self-hosted S3-compatible storage (MinIO) for scalability.
+
+Communication:
+
+Simple HTTP/REST calls between the Next.js frontend and the NestJS backend.
+
+3. Overall Architecture
+Backend (NestJS Monolith):
+
+Organized into feature modules such as:
+
+Auth Module: Manages user registration, login, and JWT-based authentication.
+
+HR Dashboard Module: Provides endpoints for dashboard metrics and activity feeds.
+
+Onboarding Module: Handles employee onboarding tasks and processes.
+
+Offboarding Module: Manages offboarding processes and checklists.
+
+Document/Compliance Module: Manages document uploads, compliance tracking, and license expiration reminders.
+
+Shared Database: A single PostgreSQL instance that stores all entities and relationships.
+
+Frontend (Next.js):
+
+Organized by feature areas (e.g., pages/login.tsx, pages/hr/dashboard.tsx, pages/hr/onboarding.tsx, etc.).
+
+Connects to the NestJS backend using simple HTTP/REST API calls.
+
+Deployed on Vercel for rapid MVP demo.
+
+File Storage:
+
+Documents are not stored as binary data in PostgreSQL but referenced via file paths.
+
+Files can be stored in a Docker-mounted volume or through a self-hosted object storage solution like MinIO.
+
+4. Step-by-Step Implementation Plan
+Phase 1: Project Setup & Foundation
+Repository & Version Control Setup
+
+Create a GitHub organization (or similar) with two separate repositories:
+
+mountain-care-backend (NestJS monolith)
+
+mountain-care-frontend (Next.js app)
+
+Define a common coding standard and branching strategy.
+
+Database Design & Setup
+
+Design the Schema:
+
+Users: Contains user credentials, roles, and metadata.
+
+Employees: Stores employee-specific details and links to user data.
+
+Documents: References for document storage (file paths, types, expiration dates).
+
+Tasks: Tables for onboarding/offboarding tasks.
+
+Local Environment:
+
+Spin up a PostgreSQL instance via Docker (or local install).
+
+Use an ORM tool (e.g., TypeORM or Prisma) to define entities and manage migrations.
+
+Create Initial Migrations:
+
+Generate migration scripts for initial schema setup.
+
+Phase 2: Backend (NestJS Monolith) Setup
+Initialize the NestJS Project
+
+Run: nest new mountain-care-backend
+
+Configure environment variables (for DB credentials, JWT secrets, etc.).
+
+Integrate the ORM
+
+Install and configure your chosen ORM (TypeORM or Prisma).
+
+Connect to PostgreSQL and test the connection.
+
+Develop Feature Modules
+
+Auth Module:
+
+Create user entities, controllers, and services for registration and login.
+
+Implement JWT-based authentication and role-based access guards.
+
+HR Dashboard Module:
+
+Develop endpoints to fetch and display overall metrics (employee count, compliance rate, etc.).
+
+Onboarding Module:
+
+Create endpoints to register new employees and track onboarding tasks.
+
+Offboarding Module:
+
+Create endpoints to manage employee offboarding processes.
+
+Document/Compliance Module:
+
+Build endpoints for file uploads (using multipart/form-data) and document retrieval.
+
+Implement logic for tracking document expiration and compliance.
+
+File Storage: Decide between using a local Docker volume or a self-hosted MinIO container. Store only file references in the database.
+
+Implement Testing & Automation
+
+Write unit tests for each module (using Jest).
+
+Set up integration tests for API endpoints (e.g., using Supertest).
+
+Implement scheduled tasks (using NestJS’s @Cron decorators) for compliance reminders.
+
+Phase 3: Frontend (Next.js) Setup
+Initialize the Next.js Project
+
+Run: npx create-next-app mountain-care-frontend
+
+Organize the project folder into:
+
+Pages: For each view (login, dashboard, onboarding, offboarding, documents).
+
+Components: For shared UI elements (header, footer, dashboard cards).
+
+Services: To abstract API calls (authService, onboardingService, etc.).
+
+Utils: Helper functions and common utilities.
+
+Develop the Login Flow
+
+Build a login page that sends credentials to the NestJS /auth/login endpoint.
+
+Handle JWT token management (store in HTTP-only cookies or local storage with proper security).
+
+Build the HR Dashboard & Feature Pages
+
+Develop the HR dashboard page to display metrics and recent activity (fetched from the backend).
+
+Create additional pages for onboarding, offboarding, and document management.
+
+Ensure each page calls the corresponding backend API endpoints.
+
+UI & UX Enhancements
+
+Use a UI library (e.g., Material UI, Chakra UI) for consistency and rapid development.
+
+Create reusable components to ensure modularity.
+
+Phase 4: Integration & End-to-End Testing
+Integrate Frontend and Backend
+
+Configure environment variables in Next.js (e.g., NEXT_PUBLIC_API_URL) to point to the NestJS server.
+
+Test API calls from the frontend to ensure data flows correctly.
+
+Perform Testing
+
+Run unit and integration tests on both frontend and backend.
+
+Optionally, implement end-to-end tests using tools like Cypress or Playwright.
+
+File Storage Testing
+
+Verify that file uploads work as expected.
+
+Ensure file references in the database correctly link to stored documents.
+
+Test retrieval of documents from the local storage (or MinIO if chosen).
+
+Phase 5: Deployment & Launch
+Local & Staging Environment Setup
+
+Use Docker Compose to create a local development environment that includes:
+
+PostgreSQL container
+
+NestJS backend container
+
+(Optional) MinIO container or local volume for file storage
+
+Validate the complete workflow in this local setup.
+
+Deploy the Frontend
+
+Deploy the Next.js application on Vercel.
+
+Configure environment variables (e.g., API URL) on Vercel.
+
+Deploy the Backend
+
+Deploy the NestJS monolith (with PostgreSQL) to a suitable hosting platform (Heroku, Render, or a Linux VPS with Docker).
+
+Ensure secure connections (HTTPS, proper CORS configuration, etc.).
+
+Monitor & Validate
+
+Perform final end-to-end tests in the staging/production environment.
+
+Set up logging, monitoring, and error tracking.
+
+Gather initial user feedback to plan subsequent iterations.
+
+5. Future Enhancements & Iteration Roadmap
+Automation & Cron Jobs:
+
+Enhance scheduled tasks for license expiration reminders and compliance checks.
+
+Additional HR & Admin Features:
+
+Extend the HR dashboard with more detailed analytics and reporting.
+
+Build an employee self-service portal for document uploads and HR functions.
+
+Implement an Admin section for business administration functions.
+
+Security Enhancements:
+
+Continuously review and improve security measures (e.g., token handling, HTTPS enforcement).
+
+Scalability Considerations:
+
+As the project grows, evaluate splitting the monolith into separate microservices if necessary.
+
+Consider advanced orchestration solutions (e.g., Kubernetes) if scaling demands increase.
+
+CI/CD Pipeline:
+
+Set up automated testing, deployment, and monitoring workflows to streamline future updates.
+
+6. Summary & Conclusion
+This step-by-step outline provides a clear roadmap for building the Mountain Care HR Dashboard project. Starting with a shared PostgreSQL database and a NestJS monolith with feature modules ensures a strong, modular foundation that is easy to extend. The Next.js frontend, organized by feature areas, will interact with the backend through simple HTTP calls, enabling rapid development and deployment on Vercel. As the project matures, future enhancements and possible migration to separate microservices will ensure scalability and maintainability.
+
+By following these detailed phases—from initial setup, through development, testing, and finally deployment—we lay the groundwork for a robust and flexible HR solution tailored to Mountain Care's needs.
+
+This comprehensive document should serve as both a roadmap and a reference guide throughout the project’s lifecycle.
