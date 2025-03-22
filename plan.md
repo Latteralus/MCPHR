@@ -31,7 +31,7 @@ Database Integration:
 
 Connect to a shared PostgreSQL database that stores all data (Users, Employees, Documents, Tasks, etc.).
 
-Use an ORM (TypeORM or Prisma) to manage database schema and migrations.
+Use an ORM (TypeORM) to manage database schema and migrations.
 
 File Storage:
 
@@ -89,7 +89,7 @@ Set up environment variables for database connection, JWT secrets, etc.
 
 Configure the ORM:
 
-Integrate TypeORM or Prisma to connect to PostgreSQL and manage migrations.
+Integrate TypeORM to connect to PostgreSQL and manage migrations.
 
 Develop Feature Modules:
 
@@ -226,7 +226,7 @@ MCPHR/
 │  │  ├─ documents/
 │  │  ├─ app.module.ts
 │  │  └─ main.ts
-│  ├─ ormconfig.ts (or .env)
+│  ├─ ormconfig.ts
 │  ├─ package.json
 │  └─ tsconfig.json
 └─ frontend/
