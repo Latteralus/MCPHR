@@ -66,7 +66,7 @@ Repository & Version Control:
 
 Create separate repositories for:
 
-mountain-care-backend (NestJS application)
+'backend' (NestJS application)
 
 mountain-care-frontend (Next.js application)
 
@@ -83,7 +83,7 @@ Generate initial migration scripts using your chosen ORM.
 Phase 2: Backend (NestJS) Development
 Initialize the NestJS Project:
 
-Create the project with nest new mountain-care-backend.
+Create the project with nest new 'backend'.
 
 Set up environment variables for database connection, JWT secrets, etc.
 
@@ -118,7 +118,7 @@ Implement logic for compliance tracking and scheduled reminders (using NestJS’
 Phase 3: Frontend (Next.js) Development
 Initialize the Next.js Project:
 
-Run npx create-next-app mountain-care-frontend.
+Run npx create-next-app 'frontend'.
 
 Set up the project folder with directories for pages, components, and services.
 
