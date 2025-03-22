@@ -24,7 +24,7 @@ import {
   faChartLine,
   faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
- import styles from '../../styles/Dashboard.module.css';
+import styles from '../styles/Dashboard.module.css';
 
 export default function Dashboard() {
   // State for search functionality (can be expanded later)
