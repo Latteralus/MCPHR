@@ -1,275 +1,244 @@
-Mountain Care HR Dashboard Project Outline
-This document describes the end-to-end plan for building the Mountain Care HR Dashboard website, designed for a pharmacy industry company. The project includes a secure login page and an HR dashboard with key features such as employee onboarding/offboarding, document compliance, and automation. The backend is built as a monolith using NestJS with feature modules, and the frontend is a Next.js application making simple HTTP/REST calls to the backend. All data is stored in a shared PostgreSQL database, and file storage is handled locally (or via a self-hosted solution like MinIO) through Docker.
+Mountain Care HR Dashboard
+1. Overall Architecture
+Backend (NestJS Monolith)
+Framework & Structure:
 
-1. Project Objectives
-Rapid MVP Delivery: Quickly build a minimum viable product to demo the key features.
+Build a monolithic backend application using NestJS.
 
-Modularity & Extensibility: Develop a monolithic backend with feature modules for easy addition of new features.
-
-Client Separation: Create a Next.js frontend with a modular, microservice-like structure (within a single codebase) that communicates via HTTP with the backend.
-
-Robust Data Management: Use a shared PostgreSQL database for all features.
-
-Scalable File Storage: Handle document uploads locally (or with a self-hosted S3-compatible solution) using Docker volumes.
-
-Future Scalability: Prepare the architecture to transition into separate microservices if needed in the future.
-
-2. Technology Stack
-Frontend: Next.js
-
-For server-side rendering, fast development, and Vercel deployment.
-
-Backend: NestJS (Monolith with Feature Modules)
-
-Modular structure (Auth, HR Dashboard, Onboarding, Offboarding, Document/Compliance).
-
-Database: PostgreSQL
-
-Single, shared database with a defined schema for Users, Employees, Documents, and Tasks.
-
-File Storage:
-
-Option A: Local Docker volume for file storage (suitable for MVP).
-
-Option B: Self-hosted S3-compatible storage (MinIO) for scalability.
-
-Communication:
-
-Simple HTTP/REST calls between the Next.js frontend and the NestJS backend.
-
-3. Overall Architecture
-Backend (NestJS Monolith):
-
-Organized into feature modules such as:
-
-Auth Module: Manages user registration, login, and JWT-based authentication.
-
-HR Dashboard Module: Provides endpoints for dashboard metrics and activity feeds.
-
-Onboarding Module: Handles employee onboarding tasks and processes.
-
-Offboarding Module: Manages offboarding processes and checklists.
-
-Document/Compliance Module: Manages document uploads, compliance tracking, and license expiration reminders.
-
-Shared Database: A single PostgreSQL instance that stores all entities and relationships.
-
-Frontend (Next.js):
-
-Organized by feature areas (e.g., pages/login.tsx, pages/hr/dashboard.tsx, pages/hr/onboarding.tsx, etc.).
-
-Connects to the NestJS backend using simple HTTP/REST API calls.
-
-Deployed on Vercel for rapid MVP demo.
-
-File Storage:
-
-Documents are not stored as binary data in PostgreSQL but referenced via file paths.
-
-Files can be stored in a Docker-mounted volume or through a self-hosted object storage solution like MinIO.
-
-4. Step-by-Step Implementation Plan
-Phase 1: Project Setup & Foundation
-Repository & Version Control Setup
-
-Create a GitHub organization (or similar) with two separate repositories:
-
-mountain-care-backend (NestJS monolith)
-
-mountain-care-frontend (Next.js app)
-
-Define a common coding standard and branching strategy.
-
-Database Design & Setup
-
-Design the Schema:
-
-Users: Contains user credentials, roles, and metadata.
-
-Employees: Stores employee-specific details and links to user data.
-
-Documents: References for document storage (file paths, types, expiration dates).
-
-Tasks: Tables for onboarding/offboarding tasks.
-
-Local Environment:
-
-Spin up a PostgreSQL instance via Docker (or local install).
-
-Use an ORM tool (e.g., TypeORM or Prisma) to define entities and manage migrations.
-
-Create Initial Migrations:
-
-Generate migration scripts for initial schema setup.
-
-Phase 2: Backend (NestJS Monolith) Setup
-Initialize the NestJS Project
-
-Run: nest new mountain-care-backend
-
-Configure environment variables (for DB credentials, JWT secrets, etc.).
-
-Integrate the ORM
-
-Install and configure your chosen ORM (TypeORM or Prisma).
-
-Connect to PostgreSQL and test the connection.
-
-Develop Feature Modules
+Organize the code into distinct feature modules:
 
 Auth Module:
 
-Create user entities, controllers, and services for registration and login.
-
-Implement JWT-based authentication and role-based access guards.
+Manage user registration, login, JWT-based authentication, and role-based access control.
 
 HR Dashboard Module:
 
-Develop endpoints to fetch and display overall metrics (employee count, compliance rate, etc.).
+Provide endpoints to display key metrics (total employees, compliance rate, recent activities).
 
 Onboarding Module:
 
-Create endpoints to register new employees and track onboarding tasks.
+Handle employee onboarding, including form submissions, task tracking, and automation triggers.
 
 Offboarding Module:
 
-Create endpoints to manage employee offboarding processes.
+Manage employee offboarding processes with checklists and automation.
 
 Document/Compliance Module:
 
-Build endpoints for file uploads (using multipart/form-data) and document retrieval.
+Enable document uploads and compliance tracking (with reminders for licensure/document expirations).
 
-Implement logic for tracking document expiration and compliance.
+Database Integration:
 
-File Storage: Decide between using a local Docker volume or a self-hosted MinIO container. Store only file references in the database.
+Connect to a shared PostgreSQL database that stores all data (Users, Employees, Documents, Tasks, etc.).
 
-Implement Testing & Automation
+Use an ORM (TypeORM or Prisma) to manage database schema and migrations.
 
-Write unit tests for each module (using Jest).
+File Storage:
 
-Set up integration tests for API endpoints (e.g., using Supertest).
+Store file uploads (e.g., employee documents) on the server’s local file system.
 
-Implement scheduled tasks (using NestJS’s @Cron decorators) for compliance reminders.
+Save only file paths or URLs in the database.
 
-Phase 3: Frontend (Next.js) Setup
-Initialize the Next.js Project
+Frontend (Next.js)
+Framework & Structure:
 
-Run: npx create-next-app mountain-care-frontend
+Build the user interface using Next.js for server-side rendered React pages.
 
-Organize the project folder into:
+Organize the project by feature:
 
-Pages: For each view (login, dashboard, onboarding, offboarding, documents).
+Pages: Separate pages for Login, HR Dashboard, Onboarding, Offboarding, and Document Management.
 
-Components: For shared UI elements (header, footer, dashboard cards).
+Components: Shared UI components (navigation, cards, forms, etc.).
 
-Services: To abstract API calls (authService, onboardingService, etc.).
+Services: Abstraction for API calls (e.g., authService, onboardingService).
 
-Utils: Helper functions and common utilities.
+Communication:
 
-Develop the Login Flow
+The Next.js frontend will interact with the NestJS backend using simple HTTP/REST API calls.
 
-Build a login page that sends credentials to the NestJS /auth/login endpoint.
+Deployment:
 
-Handle JWT token management (store in HTTP-only cookies or local storage with proper security).
+Initially deploy the Next.js application to Vercel for a rapid MVP demo, with plans to later migrate to a dedicated domain.
 
-Build the HR Dashboard & Feature Pages
+2. Recommended Development Sequence
+Phase 1: Initial Setup & Database Design
+Repository & Version Control:
 
-Develop the HR dashboard page to display metrics and recent activity (fetched from the backend).
+Create separate repositories for:
 
-Create additional pages for onboarding, offboarding, and document management.
+mountain-care-backend (NestJS application)
 
-Ensure each page calls the corresponding backend API endpoints.
+mountain-care-frontend (Next.js application)
 
-UI & UX Enhancements
+Define coding standards and branching strategies.
 
-Use a UI library (e.g., Material UI, Chakra UI) for consistency and rapid development.
+Database Design & Setup:
 
-Create reusable components to ensure modularity.
+Design the PostgreSQL schema with tables for Users, Employees, Documents, and Tasks.
 
-Phase 4: Integration & End-to-End Testing
-Integrate Frontend and Backend
+Set up a local PostgreSQL instance (installed directly on your development machine or on a local VM).
 
-Configure environment variables in Next.js (e.g., NEXT_PUBLIC_API_URL) to point to the NestJS server.
+Generate initial migration scripts using your chosen ORM.
 
-Test API calls from the frontend to ensure data flows correctly.
+Phase 2: Backend (NestJS) Development
+Initialize the NestJS Project:
 
-Perform Testing
+Create the project with nest new mountain-care-backend.
 
-Run unit and integration tests on both frontend and backend.
+Set up environment variables for database connection, JWT secrets, etc.
 
-Optionally, implement end-to-end tests using tools like Cypress or Playwright.
+Configure the ORM:
 
-File Storage Testing
+Integrate TypeORM or Prisma to connect to PostgreSQL and manage migrations.
 
-Verify that file uploads work as expected.
+Develop Feature Modules:
 
-Ensure file references in the database correctly link to stored documents.
+Auth Module:
 
-Test retrieval of documents from the local storage (or MinIO if chosen).
+Implement user registration, login endpoints, JWT issuance, and role-based guards.
+
+HR Dashboard Module:
+
+Create endpoints to fetch metrics and recent activity.
+
+Onboarding Module:
+
+Develop endpoints for employee creation and onboarding task tracking.
+
+Offboarding Module:
+
+Implement endpoints to handle employee offboarding processes.
+
+Document/Compliance Module:
+
+Build endpoints to handle file uploads (multipart/form-data) and document retrieval.
+
+Implement logic for compliance tracking and scheduled reminders (using NestJS’s built-in scheduling features  (@Cron)).
+
+Phase 3: Frontend (Next.js) Development
+Initialize the Next.js Project:
+
+Run npx create-next-app mountain-care-frontend.
+
+Set up the project folder with directories for pages, components, and services.
+
+Develop the Authentication Flow:
+
+Create a login page that calls the NestJS /auth/login endpoint.
+
+Manage JWT tokens securely (e.g., via HTTP-only cookies).
+
+Build the HR Dashboard & Feature Pages:
+
+Develop the HR dashboard page to display data from the backend (metrics, recent activities).
+
+Build pages for Onboarding, Offboarding, and Document Management.
+
+Use the services folder to abstract and manage API calls to the backend.
+
+Phase 4: Integration & Testing
+Integrate Frontend & Backend:
+
+Configure environment variables (e.g., NEXT_PUBLIC_API_URL) to point the Next.js app to the NestJS backend.
+
+Test API calls from the frontend to ensure data is correctly fetched and displayed.
+
+Testing:
+
+Write unit tests for backend modules (using Jest and Supertest).
+
+Implement unit tests for frontend components.
+
+Optionally, create end-to-end tests using tools like Cypress or Playwright.
 
 Phase 5: Deployment & Launch
-Local & Staging Environment Setup
+Prepare for Deployment:
 
-Use Docker Compose to create a local development environment that includes:
+Prepare the NestJS application for deployment on a standard Linux server (without Docker).
 
-PostgreSQL container
+Document the process for installing dependencies, setting up environment variables, and running the PostgreSQL database.
 
-NestJS backend container
+Deploy the Frontend:
 
-(Optional) MinIO container or local volume for file storage
+Deploy the Next.js application to Vercel for the MVP.
 
-Validate the complete workflow in this local setup.
+Configure the production environment with the correct API URL.
 
-Deploy the Frontend
+Deploy the Backend:
 
-Deploy the Next.js application on Vercel.
+Deploy the NestJS monolith on a Linux server (e.g., via PM2 or systemd for process management).
 
-Configure environment variables (e.g., API URL) on Vercel.
+Ensure HTTPS is configured and CORS is set up correctly.
 
-Deploy the Backend
+Post-Deployment:
 
-Deploy the NestJS monolith (with PostgreSQL) to a suitable hosting platform (Heroku, Render, or a Linux VPS with Docker).
+Monitor the application, set up logging, and validate end-to-end functionality.
 
-Ensure secure connections (HTTPS, proper CORS configuration, etc.).
+Gather initial user feedback for further refinements.
 
-Monitor & Validate
+3. Key Considerations
+Modularity & Maintainability:
 
-Perform final end-to-end tests in the staging/production environment.
+Keeping the backend as a monolith with feature modules allows for clear separation of concerns and simplifies future enhancements.
 
-Set up logging, monitoring, and error tracking.
+The Next.js frontend, while in a single codebase, is structured by feature, making it easier to evolve individual sections independently.
 
-Gather initial user feedback to plan subsequent iterations.
+Security:
 
-5. Future Enhancements & Iteration Roadmap
-Automation & Cron Jobs:
+Ensure endpoints are secured with role-based access control.
 
-Enhance scheduled tasks for license expiration reminders and compliance checks.
+Handle JWT tokens securely and enforce HTTPS in production.
 
-Additional HR & Admin Features:
+Scalability:
 
-Extend the HR dashboard with more detailed analytics and reporting.
+Although the MVP is built as a monolith, the code structure allows for easy refactoring into microservices if needed later.
 
-Build an employee self-service portal for document uploads and HR functions.
+The shared PostgreSQL database and local file storage solution are sufficient for early stages; they can be upgraded to managed or distributed systems as the application grows.
 
-Implement an Admin section for business administration functions.
+Documentation & Testing:
 
-Security Enhancements:
+Document every step of the setup and deployment process to help future developers.
 
-Continuously review and improve security measures (e.g., token handling, HTTPS enforcement).
+Write tests at multiple levels (unit, integration, and optionally E2E) to ensure a robust application.
 
-Scalability Considerations:
+4. Summary
+This updated plan ensures that the Mountain Care HR Dashboard is built in a modular and scalable way:
 
-As the project grows, evaluate splitting the monolith into separate microservices if necessary.
+Backend: A NestJS monolith with distinct feature modules, integrated with a shared PostgreSQL database and local file storage.
 
-Consider advanced orchestration solutions (e.g., Kubernetes) if scaling demands increase.
+Frontend: A Next.js application organized by feature that communicates via simple HTTP/REST calls.
 
-CI/CD Pipeline:
+Deployment: Designed for a standard Linux server environment—no Docker required—ensuring straightforward setup and future scalability.
 
-Set up automated testing, deployment, and monitoring workflows to streamline future updates.
+By following these phases and considerations, the application will be robust enough to meet immediate MVP needs while remaining flexible for future growth and enhancements.
 
-6. Summary & Conclusion
-This step-by-step outline provides a clear roadmap for building the Mountain Care HR Dashboard project. Starting with a shared PostgreSQL database and a NestJS monolith with feature modules ensures a strong, modular foundation that is easy to extend. The Next.js frontend, organized by feature areas, will interact with the backend through simple HTTP calls, enabling rapid development and deployment on Vercel. As the project matures, future enhancements and possible migration to separate microservices will ensure scalability and maintainability.
+This comprehensive plan should serve as a roadmap for the development and deployment of the Mountain Care HR Dashboard project.
 
-By following these detailed phases—from initial setup, through development, testing, and finally deployment—we lay the groundwork for a robust and flexible HR solution tailored to Mountain Care's needs.
+# Structure
 
-This comprehensive document should serve as both a roadmap and a reference guide throughout the project’s lifecycle.
+MCPHR/
+├─ backend/
+│  ├─ src/
+│  │  ├─ auth/
+│  │  ├─ hr-dashboard/
+│  │  ├─ onboarding/
+│  │  ├─ offboarding/
+│  │  ├─ documents/
+│  │  ├─ app.module.ts
+│  │  └─ main.ts
+│  ├─ ormconfig.ts (or .env)
+│  ├─ package.json
+│  └─ tsconfig.json
+└─ frontend/
+   ├─ pages/
+   │  ├─ auth/
+   │  ├─ dashboard/
+   │  ├─ onboarding/
+   │  ├─ offboarding/
+   │  ├─ documents/
+   │  └─ index.tsx
+   ├─ components/
+   ├─ services/
+   ├─ public/
+   ├─ package.json
+   └─ tsconfig.json
