@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Layout from '../../components/Layout';
+import Layout from '../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faHome,
@@ -24,276 +24,332 @@ import {
   faChartLine,
   faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
-import styles from '../styles/Dashboard.module.css';
+import Head from 'next/head';
+import Link from 'next/link';
+import Image from 'next/image';
 
-export default function Dashboard() {
-  // State for search functionality (can be expanded later)
+export default function Home() {
+  // State for search functionality
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <Layout>
-      <div className={styles.dashboardContainer}>
-        <div className={styles.header}>
-          <div className={styles.pageTitle}>
-            <h1>Dashboard</h1>
-            <div className={styles.pageSubtitle}>Welcome back, Faith! Here's what's happening today.</div>
-          </div>
-          <div className={styles.headerActions}>
-            <div className={styles.searchBox}>
-              <FontAwesomeIcon icon={faSearch} className={styles.searchIcon} />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className={styles.notificationBadge}>
-              <FontAwesomeIcon icon={faBell} />
-              <span className={styles.badge}>3</span>
-            </div>
-            <button className={`${styles.btn} ${styles.btnPrimary}`}>
-              <FontAwesomeIcon icon={faPlus} /> New Employee
-            </button>
-          </div>
-        </div>
+    <>
+      <Head>
+        <title>Mountain Care HR - Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+      </Head>
 
-        <div className={styles.dashboardGrid}>
-          {/* Stats Row */}
-          <div className={styles.colSpan3}>
-            <div className={`${styles.card} ${styles.statCard}`}>
-              <div className={styles.cardBody}>
-                <div className={styles.statLabel}>
-                  <FontAwesomeIcon icon={faUsers} /> Total Employees
-                </div>
-                <div className={styles.statValue}>198</div>
-                <div className={styles.statDescription}>
-                  <span className={`${styles.statTrend} ${styles.trendUp}`}>
-                    <FontAwesomeIcon icon={faArrowUp} /> 3.2%
-                  </span>
-                  from last month
-                </div>
-              </div>
+      <div className="container">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="sidebar-logo">
+            <img src="https://via.placeholder.com/40" alt="Mountain Care Logo" />
+            <span>Mountain Care</span>
+          </div>
+          <nav className="sidebar-menu">
+            <Link href="#" className="menu-item active">
+              <FontAwesomeIcon icon={faHome} /> Dashboard
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faUsers} /> Employees
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faCalendarAlt} /> Attendance
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faCalendarCheck} /> Leave Management
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faClipboardList} /> Onboarding
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faUserMinus} /> Offboarding
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faShieldAlt} /> Compliance
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faFileAlt} /> Documents
+            </Link>
+            <Link href="#" className="menu-item">
+              <FontAwesomeIcon icon={faCog} /> Settings
+            </Link>
+          </nav>
+          <div className="sidebar-footer">
+            <img src="https://via.placeholder.com/36" alt="User avatar" />
+            <div className="user-info">
+              <div className="user-name">Faith Calkins</div>
+              <div className="user-role">HR Director</div>
             </div>
           </div>
-          
-          <div className={styles.colSpan3}>
-            <div className={`${styles.card} ${styles.statCard}`}>
-              <div className={styles.cardBody}>
-                <div className={styles.statLabel}>
-                  <FontAwesomeIcon icon={faCalendarCheck} /> Attendance Rate
-                </div>
-                <div className={styles.statValue}>96.5%</div>
-                <div className={styles.statDescription}>
-                  <span className={`${styles.statTrend} ${styles.trendUp}`}>
-                    <FontAwesomeIcon icon={faArrowUp} /> 1.8%
-                  </span>
-                  from last month
-                </div>
-              </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="main-content">
+          <div className="header">
+            <div className="page-title">
+              <h1>Dashboard</h1>
+              <div className="page-subtitle">Welcome back, Faith! Here's what's happening today.</div>
             </div>
-          </div>
-          
-          <div className={styles.colSpan3}>
-            <div className={`${styles.card} ${styles.statCard}`}>
-              <div className={styles.cardBody}>
-                <div className={styles.statLabel}>
-                  <FontAwesomeIcon icon={faHourglassHalf} /> Leave Requests
-                </div>
-                <div className={styles.statValue}>12</div>
-                <div className={styles.statDescription}>
-                  <span className={`${styles.statTrend} ${styles.trendDown}`}>
-                    <FontAwesomeIcon icon={faArrowDown} /> 2.5%
-                  </span>
-                  from last month
-                </div>
+            <div className="header-actions">
+              <div className="search-box">
+                <FontAwesomeIcon icon={faSearch} className="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="Search..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-            </div>
-          </div>
-          
-          <div className={styles.colSpan3}>
-            <div className={`${styles.card} ${styles.statCard}`}>
-              <div className={styles.cardBody}>
-                <div className={styles.statLabel}>
-                  <FontAwesomeIcon icon={faClipboardList} /> Compliance Rate
-                </div>
-                <div className={styles.statValue}>98.2%</div>
-                <div className={styles.statDescription}>
-                  <span className={`${styles.statTrend} ${styles.trendUp}`}>
-                    <FontAwesomeIcon icon={faArrowUp} /> 0.7%
-                  </span>
-                  from last month
-                </div>
+              <div className="notification-badge">
+                <FontAwesomeIcon icon={faBell} />
+                <span className="badge">3</span>
               </div>
+              <button className="btn btn-primary">
+                <FontAwesomeIcon icon={faPlus} /> New Employee
+              </button>
             </div>
           </div>
 
-          {/* License Expiry */}
-          <div className={styles.colSpan4}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>License Operations</h3>
-                <a href="#" className={styles.actionLink}>
-                  View all <FontAwesomeIcon icon={faChevronRight} />
-                </a>
+          <div className="dashboard-grid">
+            {/* Stats Row */}
+            <div className="col-span-3">
+              <div className="card stat-card">
+                <div className="card-body">
+                  <div className="stat-label">
+                    <FontAwesomeIcon icon={faUsers} /> Total Employees
+                  </div>
+                  <div className="stat-value">198</div>
+                  <div className="stat-description">
+                    <span className="stat-trend trend-up">
+                      <FontAwesomeIcon icon={faArrowUp} /> 3.2%
+                    </span>
+                    from last month
+                  </div>
+                </div>
               </div>
-              <div className={styles.cardBody}>
+            </div>
+            
+            <div className="col-span-3">
+              <div className="card stat-card">
+                <div className="card-body">
+                  <div className="stat-label">
+                    <FontAwesomeIcon icon={faCalendarCheck} /> Attendance Rate
+                  </div>
+                  <div className="stat-value">96.5%</div>
+                  <div className="stat-description">
+                    <span className="stat-trend trend-up">
+                      <FontAwesomeIcon icon={faArrowUp} /> 1.8%
+                    </span>
+                    from last month
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="col-span-3">
+              <div className="card stat-card">
+                <div className="card-body">
+                  <div className="stat-label">
+                    <FontAwesomeIcon icon={faHourglassHalf} /> Leave Requests
+                  </div>
+                  <div className="stat-value">12</div>
+                  <div className="stat-description">
+                    <span className="stat-trend trend-down">
+                      <FontAwesomeIcon icon={faArrowDown} /> 2.5%
+                    </span>
+                    from last month
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="col-span-3">
+              <div className="card stat-card">
+                <div className="card-body">
+                  <div className="stat-label">
+                    <FontAwesomeIcon icon={faClipboardList} /> Compliance Rate
+                  </div>
+                  <div className="stat-value">98.2%</div>
+                  <div className="stat-description">
+                    <span className="stat-trend trend-up">
+                      <FontAwesomeIcon icon={faArrowUp} /> 0.7%
+                    </span>
+                    from last month
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* License Expiry */}
+            <div className="col-span-4">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">License Operations</h3>
+                  <a href="#" className="action-link">
+                    View all <FontAwesomeIcon icon={faChevronRight} />
+                  </a>
+                </div>
+                <div className="card-body">
+                  {[
+                    {
+                      initials: 'JD',
+                      name: 'James Kirk',
+                      licenseType: 'Pharmacist License',
+                      status: 'danger',
+                      days: 7
+                    },
+                    {
+                      initials: 'MM',
+                      name: 'Leonard McCoy',
+                      licenseType: 'Pharmacy Tech License',
+                      status: 'warning',
+                      days: 14
+                    },
+                    {
+                      initials: 'RL',
+                      name: 'Nyota Uhura',
+                      licenseType: 'Controlled Substance License',
+                      status: 'warning',
+                      days: 21
+                    },
+                    {
+                      initials: 'JD',
+                      name: 'William Manager',
+                      licenseType: '90 Day Review',
+                      status: 'warning',
+                      days: 23
+                    },
+                    {
+                      initials: 'JD',
+                      name: 'Washington State',
+                      licenseType: 'State License Renewal',
+                      status: 'warning',
+                      days: 25
+                    }
+                  ].map((license, index) => (
+                    <div className="license-item" key={index}>
+                      <div className="license-item-avatar">{license.initials}</div>
+                      <div className="license-item-info">
+                        <div className="license-item-name">{license.name}</div>
+                        <div className="license-item-detail">{license.licenseType}</div>
+                      </div>
+                      <div className={`license-status status-${license.status}`}>
+                        {license.days} days
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="col-span-8">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Recent Activity</h3>
+                  <a href="#" className="action-link">
+                    View all <FontAwesomeIcon icon={faChevronRight} />
+                  </a>
+                </div>
+                <div className="card-body">
+                  {[
+                    {
+                      time: 'Today, 10:30 AM',
+                      user: 'Sarah Johnson',
+                      description: 'approved time off request for Emily Chen'
+                    },
+                    {
+                      time: 'Today, 9:45 AM',
+                      user: 'David Wilson',
+                      description: 'uploaded a new document to the compliance portal'
+                    },
+                    {
+                      time: 'Today, 8:15 AM',
+                      user: 'Lisa Patel',
+                      description: 'completed onboarding for Mark Thompson'
+                    },
+                    {
+                      time: 'Yesterday, 4:30 PM',
+                      user: 'James Rodriguez',
+                      description: 'updated the employee handbook'
+                    },
+                    {
+                      time: 'Yesterday, 2:15 PM',
+                      user: 'Maria Garcia',
+                      description: 'added 3 new training modules to the compliance system'
+                    }
+                  ].map((activity, index) => (
+                    <div className="activity-item" key={index}>
+                      <div className="activity-badge"></div>
+                      <div className="activity-time">{activity.time}</div>
+                      <div className="activity-description">
+                        <span className="activity-user">{activity.user}</span> {activity.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Module Access Cards */}
+            <div className="col-span-12">
+              <h3 style={{ marginBottom: '1rem' }}>Quick Access</h3>
+              <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
                 {[
                   {
-                    initials: 'JD',
-                    name: 'James Kirk',
-                    licenseType: 'Pharmacist License',
-                    status: 'danger',
-                    days: 7
+                    icon: faUserPlus,
+                    title: 'Onboarding',
+                    description: 'Add new employees to the system',
+                    action: 'Get Started',
+                    href: '#'
                   },
                   {
-                    initials: 'MM',
-                    name: 'Leonard McCoy',
-                    licenseType: 'Pharmacy Tech License',
-                    status: 'warning',
-                    days: 14
+                    icon: faClipboardCheck,
+                    title: 'Compliance',
+                    description: 'Track licenses and certifications',
+                    action: 'Manage',
+                    href: '#'
                   },
                   {
-                    initials: 'RL',
-                    name: 'Nyota Uhura',
-                    licenseType: 'Controlled Substance License',
-                    status: 'warning',
-                    days: 21
+                    icon: faClock,
+                    title: 'Time Off',
+                    description: 'Manage leave requests',
+                    action: 'Review',
+                    href: '#'
                   },
                   {
-                    initials: 'JD',
-                    name: 'William Manager',
-                    licenseType: '90 Day Review',
-                    status: 'warning',
-                    days: 23
+                    icon: faFileUpload,
+                    title: 'Documents',
+                    description: 'Upload and manage files',
+                    action: 'Access',
+                    href: '#'
                   },
                   {
-                    initials: 'JD',
-                    name: 'Washington State',
-                    licenseType: 'State License Renewal',
-                    status: 'warning',
-                    days: 25
+                    icon: faChartLine,
+                    title: 'Reports',
+                    description: 'Generate HR analytics',
+                    action: 'View',
+                    href: '#'
                   }
-                ].map((license, index) => (
-                  <div className={styles.licenseItem} key={index}>
-                    <div className={styles.licenseItemAvatar}>{license.initials}</div>
-                    <div className={styles.licenseItemInfo}>
-                      <div className={styles.licenseItemName}>{license.name}</div>
-                      <div className={styles.licenseItemDetail}>{license.licenseType}</div>
-                    </div>
-                    <div className={`${styles.licenseStatus} ${styles[`status${license.status.charAt(0).toUpperCase() + license.status.slice(1)}`]}`}>
-                      {license.days} days
+                ].map((module, index) => (
+                  <div className="card module-card" key={index}>
+                    <div className="module-card-body">
+                      <div className="module-icon">
+                        <FontAwesomeIcon icon={module.icon} />
+                      </div>
+                      <h4 className="module-title">{module.title}</h4>
+                      <p className="module-description">{module.description}</p>
+                      <a href={module.href} className="action-link">{module.action}</a>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Recent Activity */}
-          <div className={styles.colSpan8}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>Recent Activity</h3>
-                <a href="#" className={styles.actionLink}>
-                  View all <FontAwesomeIcon icon={faChevronRight} />
-                </a>
-              </div>
-              <div className={styles.cardBody}>
-                {[
-                  {
-                    time: 'Today, 10:30 AM',
-                    user: 'Sarah Johnson',
-                    description: 'approved time off request for Emily Chen'
-                  },
-                  {
-                    time: 'Today, 9:45 AM',
-                    user: 'David Wilson',
-                    description: 'uploaded a new document to the compliance portal'
-                  },
-                  {
-                    time: 'Today, 8:15 AM',
-                    user: 'Lisa Patel',
-                    description: 'completed onboarding for Mark Thompson'
-                  },
-                  {
-                    time: 'Yesterday, 4:30 PM',
-                    user: 'James Rodriguez',
-                    description: 'updated the employee handbook'
-                  },
-                  {
-                    time: 'Yesterday, 2:15 PM',
-                    user: 'Maria Garcia',
-                    description: 'added 3 new training modules to the compliance system'
-                  }
-                ].map((activity, index) => (
-                  <div className={styles.activityItem} key={index}>
-                    <div className={styles.activityBadge}></div>
-                    <div className={styles.activityTime}>{activity.time}</div>
-                    <div className={styles.activityDescription}>
-                      <span className={styles.activityUser}>{activity.user}</span> {activity.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Module Access Cards */}
-          <div className={styles.colSpan12}>
-            <h3 style={{ marginBottom: '1rem' }}>Quick Access</h3>
-            <div className={`${styles.dashboardGrid} ${styles.quickAccessGrid}`}>
-              {[
-                {
-                  icon: faUserPlus,
-                  title: 'Onboarding',
-                  description: 'Add new employees to the system',
-                  action: 'Get Started',
-                  href: '#'
-                },
-                {
-                  icon: faClipboardCheck,
-                  title: 'Compliance',
-                  description: 'Track licenses and certifications',
-                  action: 'Manage',
-                  href: '#'
-                },
-                {
-                  icon: faClock,
-                  title: 'Time Off',
-                  description: 'Manage leave requests',
-                  action: 'Review',
-                  href: '#'
-                },
-                {
-                  icon: faFileUpload,
-                  title: 'Documents',
-                  description: 'Upload and manage files',
-                  action: 'Access',
-                  href: '#'
-                },
-                {
-                  icon: faChartLine,
-                  title: 'Reports',
-                  description: 'Generate HR analytics',
-                  action: 'View',
-                  href: '#'
-                }
-              ].map((module, index) => (
-                <div className={`${styles.card} ${styles.moduleCard}`} key={index}>
-                  <div className={styles.moduleCardBody}>
-                    <div className={styles.moduleIcon}>
-                      <FontAwesomeIcon icon={module.icon} />
-                    </div>
-                    <h4 className={styles.moduleTitle}>{module.title}</h4>
-                    <p className={styles.moduleDescription}>{module.description}</p>
-                    <a href={module.href} className={styles.actionLink}>{module.action}</a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
-    </Layout>
-  )};
+    </>
+  );
+}
