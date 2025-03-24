@@ -12,6 +12,7 @@ import {
   faFileAlt,
   faCog
 } from '@fortawesome/free-solid-svg-icons';
+import Head from 'next/head';
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,14 +21,21 @@ interface LayoutProps {
 const Layout: FC<LayoutProps> = ({ children }) => {
   return (
     <div className="container">
+      <Head>
+        <title>Mountain Care HR Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+      </Head>
+
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img src="https://via.placeholder.com/40" alt="Mountain Care Logo" />
+          <img src="/images/logo.png" alt="Mountain Care Logo" />
           <span>Mountain Care</span>
         </div>
         <nav className="sidebar-menu">
-          <Link href="/" className="menu-item active">
+          <Link href="/dashboard" className="menu-item active">
             <FontAwesomeIcon icon={faHome} /> Dashboard
           </Link>
           <Link href="/employees" className="menu-item">
@@ -56,7 +64,7 @@ const Layout: FC<LayoutProps> = ({ children }) => {
           </Link>
         </nav>
         <div className="sidebar-footer">
-          <img src="https://via.placeholder.com/36" alt="User avatar" />
+          <img src="/images/avatar.png" alt="User avatar" />
           <div className="user-info">
             <div className="user-name">Faith Calkins</div>
             <div className="user-role">HR Director</div>
