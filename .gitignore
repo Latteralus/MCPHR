@@ -1,1 +1,43 @@
-node_modules
+# Node modules for both projects
+node_modules/
+**/node_modules/
+
+# Build outputs for NestJS (backend)
+backend/dist/
+
+# Build outputs for Next.js (frontend)
+frontend/.next/
+frontend/out/
+
+# Vercel deployment config
+.vercel/
+
+# Environment variables and sensitive config
+*.env
+backend/.env
+frontend/.env
+*.env.local
+*.env.*.local
+
+# Logs
+*.log
+backend/*.log
+frontend/*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Coverage directories
+coverage/
+backend/coverage/
+frontend/coverage/

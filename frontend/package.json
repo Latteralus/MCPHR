@@ -1,0 +1,23 @@
+{
+    "name": "mountain-care-frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start"
+    },
+    "dependencies": {
+        "@fortawesome/free-solid-svg-icons": "^6.7.2",
+        "@fortawesome/react-fontawesome": "^0.2.2",
+        "next": "13.4.12",
+        "react": "18.2.0",
+        "react-dom": "18.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.13.11",
+        "@types/react": "^19.0.12",
+        "@types/styled-jsx": "^2.2.9",
+        "typescript": "^5.0.0"
+    }
+}

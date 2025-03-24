@@ -1,458 +1,244 @@
-```markdown
-You are an expert in full-stack development. I have a project plan that needs refining and code suggestions. The project is a browser-based HR app called "Mountain Care HR" (MCPHR). I want to start with a local, in-browser SQLite database using `sql.js` but ensure it can be easily ported to PostgreSQL later. Below are all the relevant details:
+Mountain Care HR Dashboard
+1. Overall Architecture
+Backend (NestJS Monolith)
+Framework & Structure:
 
-================================================================================
-# Mountain Care HR App (Browser-Based)
+Build a monolithic backend application using NestJS.
 
-## Technology Stack
+Organize the code into distinct feature modules:
 
-- **Frontend**: React.js with TypeScript 
-- **Backend**: Node.js with Express (optional, for future expansion)  
-- **Database (Initial)**: `sql.js` (WebAssembly port of SQLite)  
-- **Database (Future)**: PostgreSQL (for production or remote usage)  
-- **Authentication**: JWT (JSON Web Tokens)  
-- **UI Framework**: Custom styling with CSS variables  
-- **Desktop Framework**: *(Removed Electron; this is purely browser-based)*
+Auth Module:
 
-## Architecture Overview
+Manage user registration, login, JWT-based authentication, and role-based access control.
 
-The application will be a **browser-based** application that can **later** integrate with a Node/Express backend and PostgreSQL. Initially, it stores data with `sql.js` entirely in the client. Once we move to a real server, the same schema can be used on PostgreSQL.
+HR Dashboard Module:
 
-### Key Architecture Components:
+Provide endpoints to display key metrics (total employees, compliance rate, recent activities).
 
-1. **Shared React Frontend**:  
-   - Core UI built with React and TypeScript.  
-   - `sql.js` runs in the browser, storing data in memory and persisting via IndexedDB.
+Onboarding Module:
 
-2. **Optional/Future Node.js Backend** (not needed immediately):  
-   - When we need multi-user functionality or a production environment, we can introduce an Express server that connects to a remote PostgreSQL database.
+Handle employee onboarding, including form submissions, task tracking, and automation triggers.
 
-3. **Database Strategy**:  
-   - **Initial**: `sql.js` in the browser (compatible with the same schemas we'll use in PostgreSQL).  
-   - **Future**: PostgreSQL for robust data storage.
+Offboarding Module:
 
-4. **Synchronization Layer**:  
-   - If you eventually want offline to online sync, you can store local data in `sql.js` and sync to PostgreSQL. (Not essential in the first phase.)
+Manage employee offboarding processes with checklists and automation.
 
-## Project Structure
+Document/Compliance Module:
 
-```
+Enable document uploads and compliance tracking (with reminders for licensure/document expirations).
+
+Database Integration:
+
+Connect to a shared PostgreSQL database that stores all data (Users, Employees, Documents, Tasks, etc.).
+
+Use an ORM (TypeORM) to manage database schema and migrations.
+
+File Storage:
+
+Store file uploads (e.g., employee documents) on the server’s local file system.
+
+Save only file paths or URLs in the database.
+
+Frontend (Next.js)
+Framework & Structure:
+
+Build the user interface using Next.js for server-side rendered React pages.
+
+Organize the project by feature:
+
+Pages: Separate pages for Login, HR Dashboard, Onboarding, Offboarding, and Document Management.
+
+Components: Shared UI components (navigation, cards, forms, etc.).
+
+Services: Abstraction for API calls (e.g., authService, onboardingService).
+
+Communication:
+
+The Next.js frontend will interact with the NestJS backend using simple HTTP/REST API calls.
+
+Deployment:
+
+Initially deploy the Next.js application to Vercel for a rapid MVP demo, with plans to later migrate to a dedicated domain.
+
+2. Recommended Development Sequence
+Phase 1: Initial Setup & Database Design
+Repository & Version Control:
+
+Create separate repositories for:
+
+'backend' (NestJS application)
+
+mountain-care-frontend (Next.js application)
+
+Define coding standards and branching strategies.
+
+Database Design & Setup:
+
+Design the PostgreSQL schema with tables for Users, Employees, Documents, and Tasks.
+
+Set up a local PostgreSQL instance (installed directly on your development machine or on a local VM).
+
+Generate initial migration scripts using your chosen ORM.
+
+Phase 2: Backend (NestJS) Development
+Initialize the NestJS Project:
+
+Create the project with nest new 'backend'.
+
+Set up environment variables for database connection, JWT secrets, etc.
+
+Configure the ORM:
+
+Integrate TypeORM to connect to PostgreSQL and manage migrations.
+
+Develop Feature Modules:
+
+Auth Module:
+
+Implement user registration, login endpoints, JWT issuance, and role-based guards.
+
+HR Dashboard Module:
+
+Create endpoints to fetch metrics and recent activity.
+
+Onboarding Module:
+
+Develop endpoints for employee creation and onboarding task tracking.
+
+Offboarding Module:
+
+Implement endpoints to handle employee offboarding processes.
+
+Document/Compliance Module:
+
+Build endpoints to handle file uploads (multipart/form-data) and document retrieval.
+
+Implement logic for compliance tracking and scheduled reminders (using NestJS’s built-in scheduling features  (@Cron)).
+
+Phase 3: Frontend (Next.js) Development
+Initialize the Next.js Project:
+
+Run npx create-next-app 'frontend'.
+
+Set up the project folder with directories for pages, components, and services.
+
+Develop the Authentication Flow:
+
+Create a login page that calls the NestJS /auth/login endpoint.
+
+Manage JWT tokens securely (e.g., via HTTP-only cookies).
+
+Build the HR Dashboard & Feature Pages:
+
+Develop the HR dashboard page to display data from the backend (metrics, recent activities).
+
+Build pages for Onboarding, Offboarding, and Document Management.
+
+Use the services folder to abstract and manage API calls to the backend.
+
+Phase 4: Integration & Testing
+Integrate Frontend & Backend:
+
+Configure environment variables (e.g., NEXT_PUBLIC_API_URL) to point the Next.js app to the NestJS backend.
+
+Test API calls from the frontend to ensure data is correctly fetched and displayed.
+
+Testing:
+
+Write unit tests for backend modules (using Jest and Supertest).
+
+Implement unit tests for frontend components.
+
+Optionally, create end-to-end tests using tools like Cypress or Playwright.
+
+Phase 5: Deployment & Launch
+Prepare for Deployment:
+
+Prepare the NestJS application for deployment on a standard Linux server (without Docker).
+
+Document the process for installing dependencies, setting up environment variables, and running the PostgreSQL database.
+
+Deploy the Frontend:
+
+Deploy the Next.js application to Vercel for the MVP.
+
+Configure the production environment with the correct API URL.
+
+Deploy the Backend:
+
+Deploy the NestJS monolith on a Linux server (e.g., via PM2 or systemd for process management).
+
+Ensure HTTPS is configured and CORS is set up correctly.
+
+Post-Deployment:
+
+Monitor the application, set up logging, and validate end-to-end functionality.
+
+Gather initial user feedback for further refinements.
+
+3. Key Considerations
+Modularity & Maintainability:
+
+Keeping the backend as a monolith with feature modules allows for clear separation of concerns and simplifies future enhancements.
+
+The Next.js frontend, while in a single codebase, is structured by feature, making it easier to evolve individual sections independently.
+
+Security:
+
+Ensure endpoints are secured with role-based access control.
+
+Handle JWT tokens securely and enforce HTTPS in production.
+
+Scalability:
+
+Although the MVP is built as a monolith, the code structure allows for easy refactoring into microservices if needed later.
+
+The shared PostgreSQL database and local file storage solution are sufficient for early stages; they can be upgraded to managed or distributed systems as the application grows.
+
+Documentation & Testing:
+
+Document every step of the setup and deployment process to help future developers.
+
+Write tests at multiple levels (unit, integration, and optionally E2E) to ensure a robust application.
+
+4. Summary
+This updated plan ensures that the Mountain Care HR Dashboard is built in a modular and scalable way:
+
+Backend: A NestJS monolith with distinct feature modules, integrated with a shared PostgreSQL database and local file storage.
+
+Frontend: A Next.js application organized by feature that communicates via simple HTTP/REST calls.
+
+Deployment: Designed for a standard Linux server environment—no Docker required—ensuring straightforward setup and future scalability.
+
+By following these phases and considerations, the application will be robust enough to meet immediate MVP needs while remaining flexible for future growth and enhancements.
+
+This comprehensive plan should serve as a roadmap for the development and deployment of the Mountain Care HR Dashboard project.
+
+# Structure
+
 MCPHR/
-├── package.json             # Root package for client
-├── tsconfig.json            # TypeScript configuration with path aliases
-├── public/                  # Static assets
-│   ├── index.html
-│   └── assets/
-├── src/                     # React frontend source code
-│   ├── index.tsx            # Entry point
-│   ├── App.tsx              # Main App component with routing
-│   ├── components/          # Shared components
-│   │   ├── Layout/          # Layout components
-│   │   │   ├── MainLayout.tsx  # Main layout with sidebar/header
-│   │   │   └── Layout.css      # Layout styles
-│   │   └── LoadingSpinner.tsx # Loading indicator
-│   ├── contexts/            # React context providers
-│   │   ├── AuthContext.tsx  # Authentication state management
-│   │   └── DatabaseContext.tsx # Database connection management
-│   ├── hooks/               # Custom React hooks
-│   ├── pages/               # Application pages
-│   │   ├── Login/           # Login page
-│   │   ├── Dashboard/       # Dashboard page
-│   │   ├── Employees/       # Employees pages
-│   │   │   ├── EmployeeList.tsx # Employee listing page  
-│   │   │   ├── EmployeeDetail.tsx # Employee detail page
-│   │   │   ├── EmployeeForm.tsx # Employee create/edit form
-│   │   │   └── Employees.css # Styles for employee pages 
-│   │   ├── Licenses/        # License tracking pages
-│   │   │   ├── LicenseList.tsx # License listing page
-│   │   │   ├── LicenseDetail.tsx # License detail page
-│   │   │   ├── LicenseForm.tsx # License create/edit form
-│   │   │   └── Licenses.css # Styles for license pages
-│   │   ├── Attendance/      # Attendance tracking
-│   │   └── Settings/        # Application settings
-│   ├── services/            # Services layer for data access
-│   │   ├── DatabaseService.ts # sql.js connection management
-│   │   ├── UserService.ts   # User data operations
-│   │   ├── EmployeeService.ts # Employee data operations
-│   │   ├── LicenseService.ts # License data operations
-│   │   └── AuthService.ts   # Authentication services
-│   ├── types/               # TypeScript type definitions
-│   │   └── index.ts         # Shared types (User, Employee, etc.)
-│   ├── utils/               # Utility functions
-│   └── styles/              # Global styles
-│       └── global.css       # CSS variables and base styles
-└── shared/                  # Code shared between front & future server
-    ├── constants.js         # Shared constants
-    ├── validation.js        # Validation rules
-    └── types.js             # Shared type definitions
-```
-
-## Database Design
-
-### Core Database Tables (Compatible with sql.js / PostgreSQL)
-
-1. **users**
-   ```sql
-   CREATE TABLE IF NOT EXISTS users (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     email TEXT UNIQUE NOT NULL,
-     password TEXT NOT NULL,
-     first_name TEXT NOT NULL,
-     last_name TEXT NOT NULL,
-     role TEXT NOT NULL,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-   );
-   ```
-
-2. **employees**
-   ```sql
-   CREATE TABLE IF NOT EXISTS employees (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     user_id INTEGER,
-     employee_id TEXT UNIQUE NOT NULL,
-     department TEXT NOT NULL,
-     position TEXT NOT NULL,
-     hire_date DATE NOT NULL,
-     manager_id INTEGER,
-     employment_status TEXT NOT NULL,
-     emergency_contact_name TEXT,
-     emergency_contact_phone TEXT,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     FOREIGN KEY (user_id) REFERENCES users(id),
-     FOREIGN KEY (manager_id) REFERENCES employees(id)
-   );
-   ```
-
-3. **licenses**
-   ```sql
-   CREATE TABLE IF NOT EXISTS licenses (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     employee_id INTEGER,
-     license_type TEXT NOT NULL,
-     license_number TEXT NOT NULL,
-     issue_date DATE NOT NULL,
-     expiration_date DATE NOT NULL,
-     issuing_authority TEXT NOT NULL,
-     status TEXT NOT NULL,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     FOREIGN KEY (employee_id) REFERENCES employees(id)
-   );
-   ```
-
-4. **attendance**
-   ```sql
-   CREATE TABLE IF NOT EXISTS attendance (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     employee_id INTEGER,
-     date DATE NOT NULL,
-     clock_in TIMESTAMP,
-     clock_out TIMESTAMP,
-     status TEXT NOT NULL,
-     notes TEXT,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     FOREIGN KEY (employee_id) REFERENCES employees(id)
-   );
-   ```
-
-5. **documents**
-   ```sql
-   CREATE TABLE IF NOT EXISTS documents (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     employee_id INTEGER,
-     document_type TEXT NOT NULL,
-     file_name TEXT NOT NULL,
-     file_path TEXT NOT NULL,
-     file_hash TEXT NOT NULL,
-     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     uploaded_by INTEGER,
-     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     FOREIGN KEY (employee_id) REFERENCES employees(id),
-     FOREIGN KEY (uploaded_by) REFERENCES users(id)
-   );
-   ```
-
-*(Removed `sync_status` fields, as we're focusing on a straightforward local approach. You can reintroduce them if you want an offline-online sync system.)*
-
-## Style Guide
-
-### Color Palette
-
-- **Primary Color**: Teal (#00796B)
-  - Dark shade: #004D40
-  - Light shade: #4DB6AC
-- **Secondary Color**: Soft Blue (#4FC3F7)
-- **Accent Color**: Amber (#FFC107)
-- **Alert Colors**:
-  - Success: #4CAF50
-  - Warning: #FF9800
-  - Danger: #F44336
-- **Neutral Colors**:
-  - White: #FFFFFF
-  - Gray-100: #F5F5F5
-  - Gray-200: #EEEEEE
-  - Gray-300: #E0E0E0
-  - Gray-400: #BDBDBD
-  - Gray-500: #9E9E9E
-  - Gray-600: #757575
-  - Gray-700: #616161
-  - Gray-800: #424242
-  - Gray-900: #212121
-
-### Typography
-
-- **Heading Font**: Inter (sans-serif)
-  - h1: 28px (1.75rem), font-weight: 700
-  - h2: 24px (1.5rem), font-weight: 700
-  - h3: 20px (1.25rem), font-weight: 600
-  - h4: 18px (1.125rem), font-weight: 600
-  - h5: 16px (1rem), font-weight: 600
-  - h6: 14px (0.875rem), font-weight: 600
-
-- **Body Font**: Nunito (sans-serif)
-  - Base size: 16px (1rem)
-  - Small text: 14px (0.875rem)
-  - Extra small text: 12px (0.75rem)
-  - Line height: 1.5
-
-### UI Components
-
-1. **Cards**
-   - White background (#FFFFFF)
-   - Border radius: 8px
-   - Box shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)
-   - Padding: 24px (1.5rem)
-
-2. **Buttons**
-   - Border radius: 8px
-   - Font weight: 600
-   - Padding: 8px 16px
-   - Primary Button: Background #00796B, Text White
-   - Secondary Button: Background White, Border #E0E0E0, Text #616161
-
-3. **Forms**
-   - Input height: 40px
-   - Border radius: 8px
-   - Border color: #E0E0E0
-   - Focus border color: #00796B
-   - Label color: #616161
-   - Input padding: 8px 16px
-
-4. **Tables**
-   - Header background: #F5F5F5
-   - Border color: #E0E0E0
-   - Zebra striping: Even rows #FFFFFF, Odd rows #F9F9F9
-   - Row hover: #F5F5F5
-
-5. **Responsive Layout**
-   - Use CSS grid or flex for layout
-   - Ensure breakpoints for mobile, tablet, desktop
-
-*(Removed references to OS-specific or Electron-specific UIs.)*
-
-## Implementation Plan (Approx. 7 Weeks)
-
-### Phase 1: Project Setup and Core Architecture (2 weeks) - COMPLETED
-
-- ~~**Week 1**:~~  
-  1. ~~Initialize React project with TypeScript.~~
-  2. ~~Install `sql.js` and other dependencies.~~
-  3. ~~Set up local in-browser database logic (open DB in memory, store in IndexedDB).~~
-  4. ~~Basic folder structure.~~
-
-- ~~**Week 2**:~~  
-  1. ~~Create core services (UserService, EmployeeService, LicenseService).~~
-  2. ~~Set up authentication services with JWT.~~
-  3. ~~Create React contexts for state management.~~
-  4. ~~Build UI components for layout and navigation.~~
-
-### Phase 2: Authentication and Core Pages (1 week) - COMPLETED
-
-- ~~Implement authentication flows:~~
-  - ~~Build login page with forms.~~
-  - ~~Create protected routes.~~
-  - ~~Store JWT token in localStorage.~~
-- ~~Create initial database seed data for development.~~
-- ~~Build dashboard and navigation.~~
-
-### Phase 3: Employee and License Management (2 weeks) - IN PROGRESS
-
-- ~~**Week 4**:~~
-  1. ~~Employee listing page with search/filter~~ ✅
-  2. Employee detail/edit forms ⏳
-  3. Employee creation flow ⏳
-
-- **Week 5**:
-  1. ~~License tracking pages~~ ✅
-  2. ~~License expiry notifications~~ ✅
-  3. License detail/edit forms ⏳
-
-### Phase 4: Additional Features (1 week) - PENDING
-
-- Attendance tracking module ⏳
-- Document upload/management (file storage in IndexedDB) ⏳
-- Reporting and data visualization ⏳
-
-### Phase 5: Testing and Refinement (1 week) - PENDING
-
-- **Testing**:
-  1. Unit tests for core React components ⏳
-  2. Integration tests for `sql.js` data flows ⏳
-  3. End-to-end testing of key workflows ⏳
-- **Refinement**:
-  1. Performance optimization ⏳
-  2. Bug fixes ⏳
-  3. UX improvements ⏳
-  4. Documentation ⏳
-
-*(Removed references to Electron packaging, offline sync manager, or auto-updates.)*
-
-## Deployment Strategy
-
-- **Browser-Only Prototype**:
-  - Simply build your React app (`npm run build`) and deploy the static files to Netlify, GitHub Pages, or any static hosting.
-- **Future Node Hosting**:
-  - Host your Express server (if used) on Heroku, Render, AWS, etc.
-  - Use a managed PostgreSQL service for production data.
-- **Security**:
-  - For purely local usage in the browser, data is stored inside the user's browser. Not recommended for sensitive production data without encryption or a secure server.
-
-## Future Expansion
-
-1. **Attendance Tracking & Reports**
-2. **Leave Management**
-3. **Document Management** (like upload, versioning)
-4. **Analytics & Dashboards**
-5. **Multi-user environment** (requires a real server + DB)
-6. **Offline to online sync** (if you keep `sql.js` as a local cache)
-
-================================================================================
-
-# Sample package.json (React + TypeScript)
-
-```json
-{
-  "name": "mcphr",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.61",
-    "@types/react": "^18.2.37",
-    "@types/react-dom": "^18.2.15",
-    "idb": "^7.1.1",
-    "jsonwebtoken": "^9.0.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.18.0",
-    "react-scripts": "5.0.1",
-    "sql.js": "^1.8.0",
-    "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
-  },
-  "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.3",
-    "@types/sql.js": "^1.4.5",
-    "wasm-loader": "^1.3.0"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  }
-}
-```
-
-================================================================================
-
-## Progress Update (Week 1-5)
-
-The following items have been completed:
-
-1. **Project Structure and Configuration**
-   - Created React + TypeScript project with proper folder structure
-   - Set up TypeScript configuration with path aliases
-   - Added global CSS styles and design system
-   - Configured CRACO for webpack customization
-   
-2. **Database Implementation**
-   - Implemented DatabaseService using sql.js for in-browser SQLite
-   - Added persistence with IndexedDB for data storage between sessions
-   - Created database tables with proper schemas
-   - Added indexing for performance optimization
-   - Built database seed functionality with test data
-   
-3. **Core Services**
-   - Created UserService for user management
-   - Created EmployeeService for employee data
-   - Created LicenseService for license tracking
-   - Implemented AuthService with JWT authentication
-   
-4. **State Management**
-   - Created AuthContext for managing authentication state
-   - Created DatabaseContext for database connection management
-   
-5. **UI Components**
-   - Implemented MainLayout component with responsive sidebar
-   - Created LoadingSpinner component for handling loading states
-   
-6. **Routing**
-   - Set up router with protected routes
-   - Added role-based access control
-   
-7. **Pages and Features**
-   - Implemented Login page with authentication flows
-   - Built Dashboard with metrics and visualizations
-   - Created Employee List page with search and filters
-   - Implemented License tracking with expiration alerts
-
-## Next Steps (Week 6-7)
-
-1. Implement employee detail and edit pages
-2. Create employee creation flow
-3. Build license detail and edit forms
-4. Add attendance tracking module
-5. Create document management features
-6. Implement unit and integration tests
-7. Optimize performance and fix bugs
-
-================================================================================
-
-**Task**:
-1. Continue building the HR app according to the plan above.
-2. Focus on completing the remaining items in Phase 3 (Employee/License details and edit forms).
-3. Begin implementing the Attendance tracking module once Phase 3 is complete.
-
----
-
-**Instructions**:  
-- Use this updated plan as a guide for continuing the development of your browser-based HR app.
-- The structure now reflects the actual implementation with TypeScript and the service pattern.
-- Follow the "Next Steps" section to prioritize upcoming development tasks.
-```
+├─ backend/
+│  ├─ src/
+│  │  ├─ auth/
+│  │  ├─ hr-dashboard/
+│  │  ├─ onboarding/
+│  │  ├─ offboarding/
+│  │  ├─ documents/
+│  │  ├─ app.module.ts
+│  │  └─ main.ts
+│  ├─ ormconfig.ts
+│  ├─ package.json
+│  └─ tsconfig.json
+└─ frontend/
+   ├─ pages/
+   │  ├─ auth/
+   │  ├─ dashboard/
+   │  ├─ onboarding/
+   │  ├─ offboarding/
+   │  ├─ documents/
+   │  └─ index.tsx
+   ├─ components/
+   ├─ services/
+   ├─ public/
+   ├─ package.json
+   └─ tsconfig.json
